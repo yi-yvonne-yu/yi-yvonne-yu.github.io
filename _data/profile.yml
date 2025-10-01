@@ -7,7 +7,7 @@ email: "yu.4063@osu.edu"
 # cv_link: link-to-your-cv-file
 gscholar: gAUeAeMAAAAJ  # This is an example, replace it with your own Google Scholar ID
 linkedin: yi-yu-yvonne
-github: Yi-Yu-Yvonne
+github: yi-yvonne-yu
 twitter: yi_yvonne_yu  # Do not include the '@' symbol
 # wechat_qrcode: /assets/images/etc/wechat.jpg
 # wechat_prompt: >-
@@ -21,12 +21,13 @@ short_bio:
   </p>
 
   <p>
-    My research lies in natural language processing (NLP), Information Retrieval (IR)  and large language models (LLMs), with a focus on improving their efficiency, reliability, and deployment in real-world applications.
+    My research lies in Natural Language Processing (NLP), Information Retrieval (IR)  and Large Language Models (LLMs), with a focus on improving their efficiency, reliability, and deployment in real-world applications.
   </p>
 
   <p>
-    My current focus is the development of novel multi-token prediction techniques designed to significantly boost model efficiency and maintain high output quality across diverse multilingual settings.
+    Currently, my focus is on multi-token prediction, aiming for inference speedups while ensuring consistent, high-quality output in multilingual contexts.
     In parallel, I collaborate with clinical partners on robust evaluation benchmarks for medical settings, focusing on off-guideline questions that highlight the need for RAG to provide trustworthy answers (under review at ICLR 2026).
+  
   </p>
 
   
