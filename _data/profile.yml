@@ -25,7 +25,8 @@ short_bio:
   </p>
 
   <p>
-    Currently, I am exploring techniques for multitoken prediction and tokenizer design. In parallel, I develop robust evaluation benchmarks for the medical domain. My work involves close collaboration with hospitals to ensure that these models are not only effective, but also trustworthy and practically deployable in real-world clinical settings.
+    My current focus is the development of novel multi-token prediction techniques designed to significantly boost model efficiency and maintain high output quality across diverse multilingual settings.
+    In parallel, I collaborate with clinical partners on robust evaluation benchmarks for medical settings, focusing on off-guideline questions that highlight the need for RAG to provide trustworthy answers (under review at ICLR 2026).
   </p>
 
   
