@@ -139,8 +139,13 @@
   font-size: 32px;
 }
 
-.about .service-title {
-  font-size: 16px;
+.about .service-item-title {
+  font-size: 14px;
+}
+
+.about .service-item-text {
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .publication-list {
