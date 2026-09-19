@@ -251,6 +251,38 @@
   font-weight: var(--fw-500);
 }
 
+.website-qr {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.website-qr a {
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--white-1);
+  transition: var(--transition-1);
+}
+
+.website-qr a:hover,
+.website-qr a:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-1);
+}
+
+.website-qr img {
+  width: 116px;
+  height: 116px;
+}
+
+.website-qr p {
+  color: var(--light-gray-70);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 
 
 
