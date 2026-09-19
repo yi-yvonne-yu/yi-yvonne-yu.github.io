@@ -37,15 +37,21 @@
           <li class="social-item"><a href="https://github.com/yi-yvonne-yu" class="social-link" aria-label="GitHub"><ion-icon name="logo-github"></ion-icon></a></li>
           <li class="social-item"><a href="https://www.linkedin.com/in/yi-yu-yvonne" class="social-link" aria-label="LinkedIn"><ion-icon name="logo-linkedin"></ion-icon></a></li>
           <li class="social-item"><a href="https://x.com/yi_yvonne_yu" class="social-link" aria-label="X"><ion-icon name="logo-twitter"></ion-icon></a></li>
+          <li class="social-item"><button class="social-link" type="button" aria-label="Show website QR code" data-qr-open><ion-icon name="qr-code-outline"></ion-icon></button></li>
         </ul>
-        <div class="website-qr">
-          <a href="https://yi-yvonne-yu.github.io/" aria-label="Open Yi Yvonne Yu's website">
-            <img src="./assets/images/website-qr.png" alt="QR code for yi-yvonne-yu.github.io" width="116" height="116">
-          </a>
-          <p>Scan to share</p>
-        </div>
       </div>
     </aside>
+    <div class="qr-modal" data-qr-modal aria-hidden="true">
+      <button class="qr-modal-overlay" type="button" aria-label="Close QR code" data-qr-close></button>
+      <div class="qr-modal-content" role="dialog" aria-modal="true" aria-labelledby="qr-modal-title">
+        <button class="qr-modal-close" type="button" aria-label="Close QR code" data-qr-close><ion-icon name="close-outline"></ion-icon></button>
+        <h2 id="qr-modal-title">Website QR Code</h2>
+        <a href="https://yi-yvonne-yu.github.io/" aria-label="Open Yi Yvonne Yu's website">
+          <img src="./assets/images/website-qr.png" alt="QR code for yi-yvonne-yu.github.io" width="220" height="220">
+        </a>
+        <p>Scan to open yi-yvonne-yu.github.io</p>
+      </div>
+    </div>
     <div class="main-content">
       <nav class="navbar" aria-label="Main navigation"><ul class="navbar-list">
         <li class="navbar-item"><button class="navbar-link active" data-nav-link>About</button></li>

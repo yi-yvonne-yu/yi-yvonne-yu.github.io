@@ -25,3 +25,25 @@ navigationLinks.forEach((link) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 });
+
+const qrModal = document.querySelector('[data-qr-modal]');
+const qrOpenButton = document.querySelector('[data-qr-open]');
+const qrCloseButtons = document.querySelectorAll('[data-qr-close]');
+
+const setQrModalOpen = (isOpen) => {
+  qrModal?.classList.toggle('active', isOpen);
+  qrModal?.setAttribute('aria-hidden', String(!isOpen));
+  document.body.style.overflow = isOpen ? 'hidden' : '';
+};
+
+qrOpenButton?.addEventListener('click', () => setQrModalOpen(true));
+qrCloseButtons.forEach((button) => {
+  button.addEventListener('click', () => setQrModalOpen(false));
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && qrModal?.classList.contains('active')) {
+    setQrModalOpen(false);
+    qrOpenButton?.focus();
+  }
+});
