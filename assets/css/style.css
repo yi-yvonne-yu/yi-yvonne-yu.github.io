@@ -148,6 +148,10 @@
   line-height: 1.5;
 }
 
+.about .service-title {
+  font-size: 16px;
+}
+
 .publication-list {
   display: grid;
   gap: 22px;
