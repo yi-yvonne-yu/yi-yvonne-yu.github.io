@@ -197,13 +197,14 @@
 
 .publication-year {
   color: var(--orange-yellow-crayola);
-  font-size: var(--fs-7);
+  font-size: 12px;
   font-weight: var(--fw-500);
 }
 
 .publication-authors {
   margin-bottom: 12px;
   color: var(--light-gray-70);
+  font-size: 14px;
 }
 
 .publication-authors strong {
@@ -212,7 +213,7 @@
 
 .publication-toggle {
   color: var(--orange-yellow-crayola);
-  font-size: var(--fs-7);
+  font-size: 12px;
   font-weight: var(--fw-500);
 }
 
@@ -224,12 +225,13 @@
   margin-top: 18px;
   padding-top: 18px;
   border-top: 1px solid var(--jet);
+  font-size: 14px;
 }
 
 .publication-details-title {
   margin-bottom: 8px;
   color: var(--white-2);
-  font-size: var(--fs-5);
+  font-size: 14px;
 }
 
 
@@ -245,7 +247,7 @@
   border: 1px solid var(--jet);
   border-radius: 8px;
   background: var(--onyx);
-  font-size: var(--fs-7);
+  font-size: 12px;
   font-weight: var(--fw-500);
 }
 
