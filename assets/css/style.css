@@ -155,6 +155,31 @@
   line-height: 1.7;
 }
 
+.publication-card summary {
+  position: relative;
+  padding-right: 28px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.publication-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.publication-card summary::after {
+  content: "+";
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: var(--orange-yellow-crayola);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.publication-card[open] summary::after {
+  content: "−";
+}
+
 .publication-card::before {
   content: "";
   position: absolute;
@@ -182,6 +207,22 @@
 
 .publication-authors strong {
   color: var(--white-2);
+}
+
+.publication-toggle {
+  color: var(--orange-yellow-crayola);
+  font-size: var(--fs-7);
+  font-weight: var(--fw-500);
+}
+
+.publication-card[open] .publication-toggle {
+  display: none;
+}
+
+.publication-details {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--jet);
 }
 
 .publication-links {
