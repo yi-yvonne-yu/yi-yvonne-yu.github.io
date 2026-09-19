@@ -231,6 +231,19 @@
   font-size: var(--fs-5);
 }
 
+.resume-skills {
+  display: grid;
+  gap: 10px;
+  color: var(--light-gray);
+  font-size: var(--fs-6);
+  line-height: 1.6;
+}
+
+.resume-skills strong {
+  color: var(--white-2);
+  font-weight: var(--fw-500);
+}
+
 .publication-links {
   display: flex;
   flex-wrap: wrap;
