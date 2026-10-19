@@ -720,16 +720,57 @@ if (canvasHost && characterButton) {
     const bubbleWidth = hint.offsetWidth;
     const bubbleHeight = hint.offsetHeight;
     const gap = 10;
-    const pageTopMargin = window.innerWidth <= 449 ? 52 : 10;
-    const desiredLeft = window.scrollX + avatarRect.left + (avatarRect.width - bubbleWidth) / 2;
-    const left = THREE.MathUtils.clamp(
-      desiredLeft,
-      window.scrollX + 10,
-      Math.max(window.scrollX + 10, window.scrollX + window.innerWidth - bubbleWidth - 10),
-    );
-    const aboveAvatar = window.scrollY + avatarRect.top - bubbleHeight - gap;
-    hint.style.left = `${left}px`;
-    hint.style.top = `${Math.max(pageTopMargin, aboveAvatar)}px`;
+    const edge = 8;
+    const viewport = {
+      left: edge,
+      top: edge,
+      right: window.innerWidth - edge,
+      bottom: window.innerHeight - edge,
+    };
+    const character = {
+      left: Math.min(stageRect.left, avatarRect.left),
+      top: Math.min(stageRect.top, avatarRect.top),
+      right: Math.max(stageRect.right, avatarRect.right),
+      bottom: Math.max(stageRect.bottom, avatarRect.bottom),
+    };
+
+    // Let the bubble scroll away with the character instead of pinning it to
+    // the viewport after the profile card has left the screen.
+    const characterVisible = character.right > 0 && character.left < window.innerWidth
+      && character.bottom > 0 && character.top < window.innerHeight;
+    if (!characterVisible) {
+      hint.style.visibility = 'hidden';
+      return;
+    }
+    hint.style.visibility = 'visible';
+
+    const centeredLeft = (character.left + character.right - bubbleWidth) / 2;
+    const centeredTop = (character.top + character.bottom - bubbleHeight) / 2;
+    const candidates = [
+      { left: centeredLeft, top: character.top - bubbleHeight - gap },
+      { left: centeredLeft, top: character.bottom + gap },
+      { left: character.left - bubbleWidth - gap, top: centeredTop },
+      { left: character.right + gap, top: centeredTop },
+    ];
+    const maxLeft = Math.max(viewport.left, viewport.right - bubbleWidth);
+    const maxTop = Math.max(viewport.top, viewport.bottom - bubbleHeight);
+    let best = null;
+    let bestScore = Number.POSITIVE_INFINITY;
+    candidates.forEach((candidate, index) => {
+      const left = THREE.MathUtils.clamp(candidate.left, viewport.left, maxLeft);
+      const top = THREE.MathUtils.clamp(candidate.top, viewport.top, maxTop);
+      const overlapsCharacter = left < character.right && left + bubbleWidth > character.left
+        && top < character.bottom && top + bubbleHeight > character.top;
+      const displacement = Math.abs(left - candidate.left) + Math.abs(top - candidate.top);
+      const score = (overlapsCharacter ? 100000 : 0) + displacement * 10 + index;
+      if (score < bestScore) {
+        best = { left, top };
+        bestScore = score;
+      }
+    });
+
+    hint.style.left = `${window.scrollX + best.left}px`;
+    hint.style.top = `${window.scrollY + best.top}px`;
     hint.style.transform = 'none';
   };
   resizeObserver = new ResizeObserver(() => {
