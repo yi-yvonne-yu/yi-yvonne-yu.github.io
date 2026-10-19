@@ -264,9 +264,8 @@ if (canvasHost && characterButton) {
       if ('filter' in blurredContext) blurredContext.filter = 'none';
       return blurredContext.getImageData(0, 0, textureWidth, textureHeight);
     };
-    // Blur each UV region in isolation so nearby hair/skin islands cannot tint the clothes.
-    const smoothedPixels = createMaskedBlur(maskCanvas, 12);
-    const smoothedHeadPixels = drewHeadTexture ? createMaskedBlur(headMaskCanvas, 7) : smoothedPixels;
+    // Blur the head UVs separately so hair details cannot bleed into the face.
+    const smoothedHeadPixels = drewHeadTexture ? createMaskedBlur(headMaskCanvas, 8) : pixels;
     const colors = { upper: [130, 151, 122], lower: [126, 153, 181] };
     const getMaskRegion = (x, y) => {
       if (x < 0 || y < 0 || x >= maskCanvas.width || y >= maskCanvas.height) return 0;
@@ -305,7 +304,7 @@ if (canvasHost && characterButton) {
           const isDarkHair = red > green + 4 && green > blue + 2 && red < 150 && green < 110;
           const isHairHighlight = maxChannel >= 80 && maxChannel < 220 && chroma <= 42;
           if (!maskInterior || (!isDarkHair && !isHairHighlight)) continue;
-          const smoothing = isHairHighlight ? 0.76 : 0.5;
+          const smoothing = isHairHighlight ? 0.78 : 0.55;
           for (let channel = 0; channel < 3; channel += 1) {
             pixels.data[pixelOffset + channel] = Math.round(THREE.MathUtils.lerp(
               pixels.data[pixelOffset + channel],
@@ -318,15 +317,11 @@ if (canvasHost && characterButton) {
 
         const garmentColor = region === 1 ? colors.upper : colors.lower;
         const isWarmSkinPixel = red > green + 16 && green > blue + 8 && red > 82;
-        if (isWarmSkinPixel || chroma > 88) continue;
-        const neutralFabric = 1 - THREE.MathUtils.smoothstep(chroma, 22, 52);
-        const smoothableFabric = 1 - THREE.MathUtils.smoothstep(chroma, 22, 88);
-        const smoothing = maskInterior ? smoothableFabric * 0.9 : 0;
+        if (isWarmSkinPixel) continue;
+        // Replace all classified garment UV pixels, including their antialiased edges,
+        // so the source texture's white crack-like marks cannot show through.
         for (let channel = 0; channel < 3; channel += 1) {
-          const original = pixels.data[pixelOffset + channel];
-          const smoothed = THREE.MathUtils.lerp(original, smoothedPixels.data[pixelOffset + channel], smoothing);
-          const tinted = smoothed * garmentColor[channel] / 255;
-          pixels.data[pixelOffset + channel] = Math.round(THREE.MathUtils.lerp(smoothed, tinted, neutralFabric));
+          pixels.data[pixelOffset + channel] = garmentColor[channel];
         }
       }
     }
