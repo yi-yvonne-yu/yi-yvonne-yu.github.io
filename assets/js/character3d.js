@@ -283,7 +283,7 @@ if (canvasHost && characterButton) {
       } else if (nextState === 'fight-idle' || (nextState === 'idle' && activeClickResume)) {
         bubbleText = 'Whoa, easy there!';
       } else if (nextState === 'fighting') {
-        bubbleText = "Don't mess with me!";
+        bubbleText = "You can't catch me!";
       } else if (nextState === 'dancing') {
         bubbleText = '🎵🎶';
       } else if (['greeting', 'walking-right', 'walking-home'].includes(nextState)) {
