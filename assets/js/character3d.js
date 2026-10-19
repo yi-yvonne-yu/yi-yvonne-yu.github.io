@@ -306,9 +306,9 @@ if (canvasHost && characterButton) {
       if (nextState === 'idle' && postFightIdleActive) {
         bubbleText = '...';
       } else if (nextState === 'fight-idle' || (nextState === 'idle' && activeClickResume)) {
-        bubbleText = 'Too slow!';
+        bubbleText = 'Whoa, easy there!';
       } else if (nextState === 'fighting') {
-        bubbleText = fightActionOverride === fightBAction ? 'Too slow!' : "You can't catch me!";
+        bubbleText = fightActionOverride === fightBAction ? "You can't catch me!" : 'Too slow!';
       } else if (nextState === 'dancing') {
         bubbleText = '🎵🎶';
       } else if (['greeting', 'hover-wave', 'walking-right', 'walking-home'].includes(nextState)) {
