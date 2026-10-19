@@ -718,36 +718,17 @@ if (canvasHost && characterButton) {
     const stageRect = characterButton.getBoundingClientRect();
     const bubbleWidth = hint.offsetWidth;
     const bubbleHeight = hint.offsetHeight;
-    const margin = 10;
     const gap = 10;
-    const viewport = { left: window.scrollX + margin, right: window.scrollX + window.innerWidth - margin };
-    const character = {
-      left: window.scrollX + stageRect.left + stageRect.width * 0.2,
-      right: window.scrollX + stageRect.right - stageRect.width * 0.2,
-      top: window.scrollY + stageRect.top + stageRect.height * 0.05,
-      bottom: window.scrollY + stageRect.bottom,
-    };
-    const candidates = [
-      { left: character.right + gap, top: character.top },
-      { left: character.left - bubbleWidth - gap, top: character.top },
-      { left: character.left + (character.right - character.left - bubbleWidth) / 2, top: character.top - bubbleHeight - gap },
-      { left: character.left + (character.right - character.left - bubbleWidth) / 2, top: character.bottom + gap },
-    ];
-    let best = candidates[0];
-    let bestScore = Number.POSITIVE_INFINITY;
-    candidates.forEach((candidate, index) => {
-      const left = THREE.MathUtils.clamp(candidate.left, viewport.left, Math.max(viewport.left, viewport.right - bubbleWidth));
-      const top = candidate.top;
-      const overlapsCharacter = left < character.right && left + bubbleWidth > character.left
-        && top < character.bottom && top + bubbleHeight > character.top;
-      const score = (overlapsCharacter ? 100000 : 0) + Math.abs(left - candidate.left) * 10 + index;
-      if (score < bestScore) {
-        best = { left, top };
-        bestScore = score;
-      }
-    });
-    hint.style.left = `${best.left}px`;
-    hint.style.top = `${Math.max(window.scrollY + margin, best.top)}px`;
+    const pageTopMargin = window.innerWidth <= 449 ? 52 : 10;
+    const desiredLeft = window.scrollX + stageRect.left + (stageRect.width - bubbleWidth) / 2;
+    const left = THREE.MathUtils.clamp(
+      desiredLeft,
+      window.scrollX + 10,
+      Math.max(window.scrollX + 10, window.scrollX + window.innerWidth - bubbleWidth - 10),
+    );
+    const aboveCharacter = window.scrollY + stageRect.top - bubbleHeight - gap;
+    hint.style.left = `${left}px`;
+    hint.style.top = `${Math.max(pageTopMargin, aboveCharacter)}px`;
     hint.style.transform = 'none';
   };
   resizeObserver = new ResizeObserver(() => {
