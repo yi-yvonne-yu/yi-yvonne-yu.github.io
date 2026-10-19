@@ -121,67 +121,129 @@ if (canvasHost && characterButton) {
   };
 
   const normalizeBoneName = (name) => name.replace(/^.*:/, '').replace(/^mixamorig/i, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
-  const upperGarmentBones = new Set(['spine', 'spine1', 'spine2', 'spine3']);
+  const upperGarmentBones = new Set([
+    'spine', 'spine1', 'spine2', 'spine3',
+    'leftshoulder', 'rightshoulder', 'leftarm', 'rightarm', 'leftforearm', 'rightforearm',
+  ]);
   const lowerGarmentBones = new Set(['hips', 'leftupleg', 'rightupleg', 'leftleg', 'rightleg']);
-  const addGarmentWeights = (mesh) => {
-    const skinIndices = mesh.geometry.getAttribute('skinIndex');
-    const skinWeights = mesh.geometry.getAttribute('skinWeight');
-    if (!skinIndices || !skinWeights || !mesh.skeleton?.bones?.length) return false;
+  const createClothingTexture = (sourceTexture, meshes) => {
+    const sourceImage = sourceTexture.image;
+    const width = sourceImage?.naturalWidth || sourceImage?.width;
+    const height = sourceImage?.naturalHeight || sourceImage?.height;
+    if (!width || !height) return null;
 
-    const garmentWeights = new Float32Array(skinIndices.count * 2);
-    for (let vertex = 0; vertex < skinIndices.count; vertex += 1) {
-      let upperWeight = 0;
-      let lowerWeight = 0;
-      for (let influence = 0; influence < skinIndices.itemSize; influence += 1) {
-        const weight = skinWeights.getComponent(vertex, influence);
-        if (weight <= 0) continue;
-        const bone = mesh.skeleton.bones[skinIndices.getComponent(vertex, influence)];
-        const boneName = bone ? normalizeBoneName(bone.name) : '';
-        if (upperGarmentBones.has(boneName)) upperWeight += weight;
-        if (lowerGarmentBones.has(boneName)) lowerWeight += weight;
+    const maskScale = Math.min(1, 2048 / Math.max(width, height));
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = Math.max(1, Math.round(width * maskScale));
+    maskCanvas.height = Math.max(1, Math.round(height * maskScale));
+    const maskContext = maskCanvas.getContext('2d', { willReadFrequently: true });
+    if (!maskContext) return null;
+    maskContext.lineJoin = 'round';
+
+    let drewGarment = false;
+    meshes.forEach((mesh) => {
+      const geometry = mesh.geometry;
+      const skinIndices = geometry.getAttribute('skinIndex');
+      const skinWeights = geometry.getAttribute('skinWeight');
+      const uv = geometry.getAttribute('uv');
+      const positions = geometry.getAttribute('position');
+      if (!skinIndices || !skinWeights || !uv || !positions || !mesh.skeleton?.bones?.length) return;
+
+      const vertexTypes = new Uint8Array(positions.count);
+      const bounds = geometry.boundingBox || (geometry.computeBoundingBox(), geometry.boundingBox);
+      const heightRange = Math.max(0.001, bounds.max.y - bounds.min.y);
+      const shoeCutoff = bounds.min.y + heightRange * 0.075;
+      for (let vertex = 0; vertex < positions.count; vertex += 1) {
+        let upperWeight = 0;
+        let lowerWeight = 0;
+        for (let influence = 0; influence < skinIndices.itemSize; influence += 1) {
+          const weight = skinWeights.getComponent(vertex, influence);
+          if (weight <= 0) continue;
+          const bone = mesh.skeleton.bones[skinIndices.getComponent(vertex, influence)];
+          const boneName = bone ? normalizeBoneName(bone.name) : '';
+          if (upperGarmentBones.has(boneName)) upperWeight += weight;
+          if (lowerGarmentBones.has(boneName)) lowerWeight += weight;
+        }
+        if (positions.getY(vertex) <= shoeCutoff) lowerWeight = 0;
+        if (upperWeight >= 0.16 && upperWeight > lowerWeight * 1.08) vertexTypes[vertex] = 1;
+        else if (lowerWeight >= 0.16 && lowerWeight > upperWeight * 1.08) vertexTypes[vertex] = 2;
       }
-      garmentWeights[vertex * 2] = upperWeight;
-      garmentWeights[vertex * 2 + 1] = lowerWeight;
-    }
-    mesh.geometry.setAttribute('garmentWeights', new THREE.BufferAttribute(garmentWeights, 2));
-    return true;
-  };
 
-  const applyClothingTint = (material) => {
-    const matchaGreen = new THREE.Color('#A7BCA0');
-    const lightDenim = new THREE.Color('#A8C5D8');
-    material.onBeforeCompile = (shader) => {
-      shader.uniforms.matchaGreen = { value: matchaGreen };
-      shader.uniforms.lightDenim = { value: lightDenim };
-      shader.vertexShader = shader.vertexShader
-        .replace(
-          '#include <common>',
-          '#include <common>\nattribute vec2 garmentWeights;\nvarying vec2 vGarmentWeights;',
-        )
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGarmentWeights = garmentWeights;');
-      shader.fragmentShader = shader.fragmentShader
-        .replace(
-          '#include <common>',
-          '#include <common>\nvarying vec2 vGarmentWeights;\nuniform vec3 matchaGreen;\nuniform vec3 lightDenim;',
-        )
-        .replace(
-          '#include <map_fragment>',
-          `#include <map_fragment>
-          float fabricLuma = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
-          float fabricChroma = max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b)
-            - min(min(diffuseColor.r, diffuseColor.g), diffuseColor.b);
-          float neutralFabric = 1.0 - smoothstep(0.06, 0.20, fabricChroma);
-          float visibleFabric = smoothstep(0.08, 0.32, fabricLuma);
-          float fabricMask = neutralFabric * visibleFabric;
-          float fabricShade = clamp(fabricLuma / 0.88, 0.58, 1.0);
-          float upperMask = clamp(vGarmentWeights.x * fabricMask, 0.0, 1.0);
-          float lowerMask = clamp(vGarmentWeights.y * fabricMask, 0.0, 1.0);
-          diffuseColor.rgb = mix(diffuseColor.rgb, matchaGreen * fabricShade, upperMask);
-          diffuseColor.rgb = mix(diffuseColor.rgb, lightDenim * fabricShade, lowerMask);`,
-        );
-    };
-    material.customProgramCacheKey = () => 'yvonne-matcha-denim-garments-v1';
-    material.needsUpdate = true;
+      const index = geometry.index;
+      const vertexAt = (offset) => index ? index.getX(offset) : offset;
+      const elementCount = index ? index.count : positions.count;
+      for (let offset = 0; offset + 2 < elementCount; offset += 3) {
+        const a = vertexAt(offset);
+        const b = vertexAt(offset + 1);
+        const c = vertexAt(offset + 2);
+        const aType = vertexTypes[a];
+        const bType = vertexTypes[b];
+        const cType = vertexTypes[c];
+        const upperCount = Number(aType === 1) + Number(bType === 1) + Number(cType === 1);
+        const lowerCount = Number(aType === 2) + Number(bType === 2) + Number(cType === 2);
+        const region = upperCount >= 2 ? 1 : lowerCount >= 2 ? 2 : 0;
+        if (!region) continue;
+
+        maskContext.fillStyle = region === 1 ? '#ff0000' : '#0000ff';
+        maskContext.beginPath();
+        [a, b, c].forEach((vertex, corner) => {
+          const x = uv.getX(vertex) * maskCanvas.width;
+          const y = (1 - uv.getY(vertex)) * maskCanvas.height;
+          if (corner === 0) maskContext.moveTo(x, y);
+          else maskContext.lineTo(x, y);
+        });
+        maskContext.closePath();
+        maskContext.fill();
+        drewGarment = true;
+      }
+    });
+
+    if (!drewGarment) return null;
+    const mask = maskContext.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+    const textureCanvas = document.createElement('canvas');
+    textureCanvas.width = width;
+    textureCanvas.height = height;
+    const textureContext = textureCanvas.getContext('2d', { willReadFrequently: true });
+    if (!textureContext) return null;
+    textureContext.drawImage(sourceImage, 0, 0, width, height);
+    const pixels = textureContext.getImageData(0, 0, width, height);
+    const colors = { upper: [167, 188, 160], lower: [168, 197, 216] };
+    for (let y = 0; y < height; y += 1) {
+      const maskY = Math.min(maskCanvas.height - 1, Math.floor(y * maskCanvas.height / height));
+      for (let x = 0; x < width; x += 1) {
+        const maskX = Math.min(maskCanvas.width - 1, Math.floor(x * maskCanvas.width / width));
+        const maskOffset = (maskY * maskCanvas.width + maskX) * 4;
+        const garmentColor = mask.data[maskOffset] > mask.data[maskOffset + 2] ? colors.upper
+          : mask.data[maskOffset + 2] > mask.data[maskOffset] ? colors.lower : null;
+        if (!garmentColor) continue;
+
+        const pixelOffset = (y * width + x) * 4;
+        const red = pixels.data[pixelOffset];
+        const green = pixels.data[pixelOffset + 1];
+        const blue = pixels.data[pixelOffset + 2];
+        const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
+        if (Math.max(red, green, blue) < 72 || chroma > 52) continue;
+
+        const neutralFabric = 1 - THREE.MathUtils.smoothstep(chroma, 22, 52);
+        for (let channel = 0; channel < 3; channel += 1) {
+          const original = pixels.data[pixelOffset + channel];
+          const tinted = original * garmentColor[channel] / 255;
+          pixels.data[pixelOffset + channel] = Math.round(THREE.MathUtils.lerp(original, tinted, neutralFabric));
+        }
+      }
+    }
+    textureContext.putImageData(pixels, 0, 0);
+
+    const clothingTexture = new THREE.CanvasTexture(textureCanvas);
+    clothingTexture.colorSpace = sourceTexture.colorSpace;
+    clothingTexture.flipY = sourceTexture.flipY;
+    clothingTexture.wrapS = sourceTexture.wrapS;
+    clothingTexture.wrapT = sourceTexture.wrapT;
+    clothingTexture.magFilter = sourceTexture.magFilter;
+    clothingTexture.minFilter = sourceTexture.minFilter;
+    clothingTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    clothingTexture.needsUpdate = true;
+    return clothingTexture;
   };
 
   const retargetClip = (clip, { keepIdleUpperBodyUpright = false } = {}) => {
@@ -691,18 +753,24 @@ if (canvasHost && characterButton) {
         // This atlas shares the OBJ's UVs, which use the standard image orientation.
         texture.flipY = true;
         texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        const skinnedMeshes = [];
+        model.traverse((object) => {
+          if (object.isSkinnedMesh) skinnedMeshes.push(object);
+        });
+        const clothingTexture = createClothingTexture(texture, skinnedMeshes) || texture;
         model.traverse((object) => {
           if (!object.isMesh) return;
-          const hasGarmentWeights = object.isSkinnedMesh && addGarmentWeights(object);
-          const applyTexture = (material) => {
-            material.map = texture;
+          const applyTexture = (sourceMaterial) => {
+            const material = sourceMaterial.clone();
+            material.map = clothingTexture;
             material.color.set(0xffffff);
-            if (hasGarmentWeights) applyClothingTint(material);
             material.needsUpdate = true;
+            return material;
           };
-          if (Array.isArray(object.material)) object.material.forEach(applyTexture);
-          else if (object.material) applyTexture(object.material);
+          if (Array.isArray(object.material)) object.material = object.material.map(applyTexture);
+          else if (object.material) object.material = applyTexture(object.material);
         });
+      if (clothingTexture !== texture) texture.dispose();
       });
 
       if (model.animations?.length) {
