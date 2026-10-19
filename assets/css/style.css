@@ -393,7 +393,7 @@ input, textarea {
 
 html {
   font-family: var(--ff-poppins);
-  background-color: #fff6dc;
+  background-color: var(--smoky-black);
 }
 
 body {
