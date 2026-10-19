@@ -697,8 +697,8 @@ main {
   min-width: 259px;
 }
 
-@media (max-width: 449px) {
-  main { margin-top: 52px; }
+@media (max-width: 579px) {
+  main { margin-top: 72px; }
 }
 
 
