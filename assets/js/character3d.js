@@ -75,18 +75,7 @@ if (canvasHost && characterButton) {
   };
   let danceOrder = createDanceOrder();
   const clickReactionNames = ['whoa', 'fist-a', 'fist-b'];
-  const createClickReactionOrder = (previousLast = null) => {
-    const order = [...clickReactionNames];
-    for (let index = order.length - 1; index > 0; index -= 1) {
-      const swapIndex = Math.floor(Math.random() * (index + 1));
-      [order[index], order[swapIndex]] = [order[swapIndex], order[index]];
-    }
-    if (previousLast && order[0] === previousLast) {
-      [order[0], order[1]] = [order[1], order[0]];
-    }
-    return order;
-  };
-  let clickReactionOrder = createClickReactionOrder();
+  const clickReactionOrder = [...clickReactionNames];
   let clickReactionIndex = 0;
   let activeDanceAction = null;
   let danceIndex = 0;
@@ -293,11 +282,7 @@ if (canvasHost && characterButton) {
   };
 
   const getNextClickReaction = () => {
-    if (clickReactionIndex >= clickReactionOrder.length) {
-      const previousLast = clickReactionOrder[clickReactionOrder.length - 1];
-      clickReactionOrder = createClickReactionOrder(previousLast);
-      clickReactionIndex = 0;
-    }
+    if (clickReactionIndex >= clickReactionOrder.length) clickReactionIndex = 0;
     return clickReactionOrder[clickReactionIndex++];
   };
 
@@ -321,9 +306,9 @@ if (canvasHost && characterButton) {
       if (nextState === 'idle' && postFightIdleActive) {
         bubbleText = '...';
       } else if (nextState === 'fight-idle' || (nextState === 'idle' && activeClickResume)) {
-        bubbleText = 'Whoa, easy there!';
+        bubbleText = 'Too slow!';
       } else if (nextState === 'fighting') {
-        bubbleText = fightActionOverride === fightBAction ? 'TOO SLOW!' : 'Too slow!';
+        bubbleText = fightActionOverride === fightBAction ? 'Too slow!' : "You can't catch me!";
       } else if (nextState === 'dancing') {
         bubbleText = '🎵🎶';
       } else if (['greeting', 'hover-wave', 'walking-right', 'walking-home'].includes(nextState)) {
