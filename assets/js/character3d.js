@@ -74,6 +74,20 @@ if (canvasHost && characterButton) {
     return [openingJazz, ...middleOrder, closingJazz];
   };
   let danceOrder = createDanceOrder();
+  const clickReactionNames = ['whoa', 'fist-a', 'fist-b'];
+  const createClickReactionOrder = (previousLast = null) => {
+    const order = [...clickReactionNames];
+    for (let index = order.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [order[index], order[swapIndex]] = [order[swapIndex], order[index]];
+    }
+    if (previousLast && order[0] === previousLast) {
+      [order[0], order[1]] = [order[1], order[0]];
+    }
+    return order;
+  };
+  let clickReactionOrder = createClickReactionOrder();
+  let clickReactionIndex = 0;
   let activeDanceAction = null;
   let danceIndex = 0;
   let fightResume = null;
@@ -81,23 +95,14 @@ if (canvasHost && characterButton) {
   let postFightIdleTimer = null;
   let postFightIdleActive = false;
   let activeClickResume = null;
-  let activeClickCount = 0;
   let activeClickHoldTimer = null;
-  let activeClickTransitionTimer = null;
-  let activeFightStartTimer = null;
-  let activeClickTransitionFinished = false;
-  let activeClickRestartedAfterFight = false;
-  let pendingFightAction = false;
   let poseState = 'idle';
   let walkYawFrom = 0;
   let walkYawTo = 0;
   let walkYawElapsed = 0;
   const walkYawDuration = 0.55;
-  const fightClickThreshold = 3;
-  const idleBeforeFightIdleDuration = 450;
   const fightIdleHoldDuration = 1200;
   const fightIdleEllipsisDuration = 1200;
-  const idleBeforeFistFightDuration = 550;
   const idleAfterFistFightDuration = 2200;
   let modelReady = false;
   let idleReady = false;
@@ -112,8 +117,6 @@ if (canvasHost && characterButton) {
   let active = false;
   let ready = false;
   let fightActionPlaying = false;
-  let queueNextFightRequested = false;
-  let lastFightAction = null;
   let pointerNearCharacter = false;
   let lastPointerPosition = null;
   let elapsedSinceWake = 0;
@@ -132,7 +135,7 @@ if (canvasHost && characterButton) {
     characterButton.disabled = false;
     characterButton.classList.add('character-ready');
     if (hint) hint.textContent = 'Tap to say hi 👋';
-    setPoseState(pointerNearCharacter ? 'fight-idle' : 'idle');
+    setPoseState(pointerNearCharacter ? 'hover-wave' : 'idle');
   };
 
   const normalizeBoneName = (name) => name.replace(/^.*:/, '').replace(/^mixamorig/i, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
@@ -288,11 +291,19 @@ if (canvasHost && characterButton) {
     return retargeted;
   };
 
-  const getNextFightAction = () => (
-    fightBAction !== fightAction && lastFightAction === fightAction ? fightBAction : fightAction
-  );
+  const getNextClickReaction = () => {
+    if (clickReactionIndex >= clickReactionOrder.length) {
+      const previousLast = clickReactionOrder[clickReactionOrder.length - 1];
+      clickReactionOrder = createClickReactionOrder(previousLast);
+      clickReactionIndex = 0;
+    }
+    return clickReactionOrder[clickReactionIndex++];
+  };
 
-  const setPoseState = (nextState, resumeFromFightOverride = null, { snapTurn = false } = {}) => {
+  const setPoseState = (nextState, resumeFromFightOverride = null, {
+    snapTurn = false,
+    fightActionOverride = null,
+  } = {}) => {
     if (nextState === poseState) {
       if (snapTurn && (nextState === 'walking-right' || nextState === 'walking-home')) {
         const facingYaw = nextState === 'walking-right' ? 0.72 : -0.72;
@@ -311,14 +322,15 @@ if (canvasHost && characterButton) {
       } else if (nextState === 'fight-idle' || (nextState === 'idle' && activeClickResume)) {
         bubbleText = 'Whoa, easy there!';
       } else if (nextState === 'fighting') {
-        bubbleText = "You can't catch me!";
+        bubbleText = fightActionOverride === fightBAction ? "YOU CAN'T CATCH ME!" : "You can't catch me!";
       } else if (nextState === 'dancing') {
         bubbleText = '🎵🎶';
-      } else if (['greeting', 'walking-right', 'walking-home'].includes(nextState)) {
+      } else if (['greeting', 'hover-wave', 'walking-right', 'walking-home'].includes(nextState)) {
         bubbleText = 'Hi, I’m Yvonne!';
       }
       speechBubble.textContent = bubbleText;
       speechBubble.hidden = !bubbleText;
+      speechBubble.style.opacity = nextState === 'hover-wave' && !active ? '1' : '';
     }
     let resumeFromFight = resumeFromFightOverride;
     if (nextState === 'fighting') {
@@ -335,7 +347,7 @@ if (canvasHost && characterButton) {
       fightResume = null;
     }
     poseState = nextState;
-    if (nextState === 'greeting') {
+    if (nextState === 'greeting' || nextState === 'hover-wave') {
       idleAction?.fadeOut(0.25);
       fightIdleAction?.fadeOut(0.2);
       fightAction?.fadeOut(0.2);
@@ -416,8 +428,7 @@ if (canvasHost && characterButton) {
       danceActions.forEach((action) => action?.fadeOut(0.12));
       activeDanceAction = null;
       fightActionPlaying = true;
-      activeFightAction = getNextFightAction();
-      lastFightAction = activeFightAction;
+      activeFightAction = fightActionOverride || fightAction;
       activeFightAction?.reset().fadeIn(0.12).play();
     } else {
       waveAction?.fadeOut(0.3);
@@ -434,19 +445,13 @@ if (canvasHost && characterButton) {
     }
   };
 
-  const setFightBubbleCase = (isSecondFight) => {
-    if (!speechBubble) return;
-    speechBubble.textContent = isSecondFight ? 'Too slow!' : "You can't catch me!";
-    speechBubble.hidden = false;
-  };
-
   document.body.addEventListener('character-walk-direction-change', (event) => {
     if (!['walking-right', 'walking-home'].includes(poseState)) return;
     setPoseState(event.detail.direction === 'left' ? 'walking-home' : 'walking-right', null, { snapTurn: true });
   });
 
   const getRequestedPose = () => {
-    if (!active) return pointerNearCharacter ? 'fight-idle' : 'idle';
+    if (!active) return pointerNearCharacter ? 'hover-wave' : 'idle';
     if (document.body.classList.contains('character-dancing')) return 'dancing';
     if (document.body.classList.contains('character-walking')) {
       return document.body.classList.contains('character-returning') ? 'walking-home' : 'walking-right';
@@ -469,13 +474,10 @@ if (canvasHost && characterButton) {
     window.clearTimeout(activeClickHoldTimer);
     activeClickHoldTimer = window.setTimeout(() => {
       activeClickHoldTimer = null;
-      if (!active || poseState !== 'fight-idle' || !activeClickResume || pendingFightAction) return;
+      if (!active || poseState !== 'fight-idle' || !activeClickResume) return;
 
       const resume = activeClickResume;
       activeClickResume = null;
-      activeClickCount = 0;
-      activeClickTransitionFinished = false;
-      activeClickRestartedAfterFight = false;
       postFightResume = resume;
       postFightIdleActive = true;
       setPoseState('idle');
@@ -493,38 +495,6 @@ if (canvasHost && characterButton) {
     }, fightIdleHoldDuration);
   };
 
-  const beginFistFight = () => {
-    if (!active || !activeClickResume || !pendingFightAction) return;
-    window.clearTimeout(activeClickHoldTimer);
-    window.clearTimeout(activeClickTransitionTimer);
-    window.clearTimeout(activeFightStartTimer);
-    activeClickHoldTimer = null;
-    activeClickTransitionTimer = null;
-    activeFightStartTimer = null;
-    fightResume = activeClickResume;
-    activeClickResume = null;
-    activeClickCount = 0;
-    activeClickTransitionFinished = false;
-    activeClickRestartedAfterFight = false;
-    pendingFightAction = false;
-    queueNextFightRequested = false;
-    setPoseState('fighting');
-  };
-
-  const scheduleFistFight = (immediate = false) => {
-    if (immediate) {
-      beginFistFight();
-      return;
-    }
-    if (poseState === 'fight-idle') setPoseState('idle');
-    window.clearTimeout(activeFightStartTimer);
-    activeFightStartTimer = window.setTimeout(() => {
-      activeFightStartTimer = null;
-      if (!active || poseState !== 'idle' || !activeClickResume || !pendingFightAction) return;
-      beginFistFight();
-    }, idleBeforeFistFightDuration);
-  };
-
   const updatePointerProximity = (clientX, clientY) => {
     lastPointerPosition = { x: clientX, y: clientY };
     if (active) return;
@@ -534,7 +504,7 @@ if (canvasHost && characterButton) {
     const isNear = Math.hypot(distanceX, distanceY) <= 28;
     if (isNear === pointerNearCharacter) return;
     pointerNearCharacter = isNear;
-    if (ready) setPoseState(isNear ? 'fight-idle' : 'idle');
+    if (ready) setPoseState(isNear ? 'hover-wave' : 'idle');
   };
 
   window.addEventListener('pointermove', (event) => {
@@ -549,11 +519,8 @@ if (canvasHost && characterButton) {
 
   document.addEventListener('pointerdown', (event) => {
     if (!active || !ready || !fightAction) return;
-    const clickedDuringFight = fightActionPlaying && poseState === 'fighting';
     const isMoving = ['walking-right', 'walking-home', 'dancing'].includes(poseState);
-    const restartingAfterFight = postFightIdleActive && poseState === 'idle';
-    const canCountAnotherTap = activeClickResume && ['idle', 'fight-idle'].includes(poseState);
-    if (!clickedDuringFight && !isMoving && !canCountAnotherTap && !restartingAfterFight) return;
+    if (!isMoving) return;
     if (event.button !== 0) return;
     if (event.target instanceof Element && event.target.closest('button, a, input, textarea, select, summary, [role="button"], [contenteditable="true"]')) return;
 
@@ -570,74 +537,15 @@ if (canvasHost && characterButton) {
 
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (clickedDuringFight) {
-      // Queue the next fight action and let the current one finish cleanly.
-      queueNextFightRequested = true;
-      return;
-    }
-
-    if (restartingAfterFight) {
-      window.clearTimeout(postFightIdleTimer);
-      postFightIdleTimer = null;
-      postFightIdleActive = false;
-      activeClickResume = postFightResume || {
-        poseState: getRequestedPose(),
-        danceIndex,
-        danceOrder: poseState === 'dancing' ? [...danceOrder] : null,
-        animationTime: poseState === 'dancing' ? activeDanceAction?.time : walkAction?.time,
-      };
-      postFightResume = null;
-      activeClickCount = 1;
-      activeClickTransitionFinished = false;
-      activeClickRestartedAfterFight = true;
-      pendingFightAction = false;
-      window.clearTimeout(activeClickTransitionTimer);
-      activeClickTransitionTimer = window.setTimeout(() => {
-        activeClickTransitionTimer = null;
-        if (active && activeClickResume && poseState === 'idle') setPoseState('fight-idle');
-      }, idleBeforeFightIdleDuration);
-      return;
-    }
-
-    if (isMoving) {
-      signalTrack('pause');
+    const reaction = getNextClickReaction();
+    signalTrack('pause');
+    if (reaction === 'whoa') {
       activeClickResume = captureMovingPose();
-      activeClickCount = 1;
-      activeClickTransitionFinished = false;
-      activeClickRestartedAfterFight = false;
-      pendingFightAction = false;
-      setPoseState('idle');
-      window.clearTimeout(activeClickTransitionTimer);
-      activeClickTransitionTimer = window.setTimeout(() => {
-        activeClickTransitionTimer = null;
-        if (active && activeClickResume && poseState === 'idle') setPoseState('fight-idle');
-      }, idleBeforeFightIdleDuration);
-      return;
+      setPoseState('fight-idle');
+    } else {
+      const selectedFightAction = reaction === 'fist-b' ? fightBAction : fightAction;
+      setPoseState('fighting', null, { fightActionOverride: selectedFightAction });
     }
-
-    if (poseState === 'fight-idle' && activeClickResume) {
-      pendingFightAction = true;
-      activeClickCount = fightClickThreshold;
-      scheduleFistFight(true);
-      return;
-    }
-
-    if (activeClickRestartedAfterFight && poseState === 'idle' && activeClickResume) {
-      pendingFightAction = true;
-      activeClickCount = fightClickThreshold;
-      return;
-    }
-
-    if (pendingFightAction) return;
-    activeClickCount += 1;
-    if (activeClickCount >= fightClickThreshold) {
-      window.clearTimeout(activeClickHoldTimer);
-      activeClickHoldTimer = null;
-      pendingFightAction = true;
-      if (activeClickTransitionFinished) scheduleFistFight();
-      return;
-    }
-    if (activeClickTransitionFinished) scheduleClickIdleResume();
   }, true);
 
   const resize = () => {
@@ -687,7 +595,7 @@ if (canvasHost && characterButton) {
     camera.updateProjectionMatrix();
   };
   const positionSpeechBubble = () => {
-    if (!speechBubble || !headBone || !active) return;
+    if (!speechBubble || !headBone || (!active && poseState !== 'hover-wave')) return;
     const width = canvasHost.clientWidth;
     const height = canvasHost.clientHeight;
     if (!width || !height) return;
@@ -834,36 +742,24 @@ if (canvasHost && characterButton) {
       if (model.animations?.length) {
         mixer = new THREE.AnimationMixer(model);
         mixer.addEventListener('finished', (event) => {
-          if (event.action === waveAction && poseState === 'greeting') {
-            characterButton.dispatchEvent(new Event('character-wave-finished'));
+          if (event.action === waveAction) {
+            if (poseState === 'greeting') characterButton.dispatchEvent(new Event('character-wave-finished'));
+            else if (poseState === 'hover-wave') setPoseState('idle');
             return;
           }
 
           if (event.action === fightIdleAction && activeClickResume && poseState === 'fight-idle') {
-            activeClickTransitionFinished = true;
-            if (pendingFightAction) scheduleFistFight();
-            else scheduleClickIdleResume();
+            scheduleClickIdleResume();
             return;
           }
 
           if (event.action === activeFightAction && fightActionPlaying) {
             fightActionPlaying = false;
             if (poseState === 'fighting') {
-              if (queueNextFightRequested) {
-                queueNextFightRequested = false;
-                event.action.fadeOut(0.12);
-                activeFightAction = getNextFightAction();
-                lastFightAction = activeFightAction;
-                setFightBubbleCase(true);
-                fightActionPlaying = true;
-                activeFightAction.reset().fadeIn(0.12).play();
-                return;
-              }
               activeFightAction = null;
               postFightResume = fightResume;
               fightResume = null;
               postFightIdleActive = true;
-              activeClickRestartedAfterFight = false;
               setPoseState('idle');
               window.clearTimeout(postFightIdleTimer);
               postFightIdleTimer = window.setTimeout(() => {
@@ -1027,15 +923,7 @@ if (canvasHost && characterButton) {
     if (!active) {
       window.clearTimeout(activeClickHoldTimer);
       activeClickHoldTimer = null;
-      window.clearTimeout(activeClickTransitionTimer);
-      activeClickTransitionTimer = null;
-      window.clearTimeout(activeFightStartTimer);
-      activeFightStartTimer = null;
       activeClickResume = null;
-      activeClickCount = 0;
-      activeClickTransitionFinished = false;
-      activeClickRestartedAfterFight = false;
-      pendingFightAction = false;
       if (lastPointerPosition) {
         updatePointerProximity(lastPointerPosition.x, lastPointerPosition.y);
       } else {
@@ -1045,7 +933,7 @@ if (canvasHost && characterButton) {
       walkAction?.stop();
       danceActions.forEach((action) => action?.stop());
       activeDanceAction = null;
-      setPoseState(pointerNearCharacter ? 'fight-idle' : 'idle');
+      setPoseState(pointerNearCharacter ? 'hover-wave' : 'idle');
       return;
     }
 
@@ -1072,6 +960,9 @@ if (canvasHost && characterButton) {
         const eased = progress * progress * (3 - 2 * progress);
         modelTurn.rotation.y = walkYawFrom + (walkYawTo - walkYawFrom) * eased;
       }
+      positionSpeechBubble();
+    } else if (poseState === 'hover-wave') {
+      if (hint) hint.style.visibility = 'hidden';
       positionSpeechBubble();
     } else {
       positionHintBubble();
