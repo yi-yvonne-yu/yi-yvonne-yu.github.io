@@ -715,63 +715,29 @@ if (canvasHost && characterButton) {
   };
   const positionHintBubble = () => {
     if (!hint || active) return;
-    const stageRect = characterButton.getBoundingClientRect();
-    const avatarRect = characterButton.closest('.avatar-box')?.getBoundingClientRect() ?? stageRect;
+    const cardRect = characterButton.closest('.sidebar')?.getBoundingClientRect();
+    if (!cardRect) return;
     const bubbleWidth = hint.offsetWidth;
     const bubbleHeight = hint.offsetHeight;
-    const gap = 10;
+    const gap = 8;
     const edge = 8;
-    const viewport = {
-      left: edge,
-      top: edge,
-      right: window.innerWidth - edge,
-      bottom: window.innerHeight - edge,
-    };
-    const character = {
-      left: Math.min(stageRect.left, avatarRect.left),
-      top: Math.min(stageRect.top, avatarRect.top),
-      right: Math.max(stageRect.right, avatarRect.right),
-      bottom: Math.max(stageRect.bottom, avatarRect.bottom),
-    };
+    const top = cardRect.top - bubbleHeight - gap;
 
-    // Let the bubble scroll away with the character instead of pinning it to
-    // the viewport after the profile card has left the screen.
-    const characterVisible = character.right > 0 && character.left < window.innerWidth
-      && character.bottom > 0 && character.top < window.innerHeight;
-    if (!characterVisible) {
+    // Keep the hint outside the entire profile card so it never covers the
+    // avatar, name, degree, or contact button. Hide it when scrolling leaves
+    // no clear space above the card.
+    if (top < edge || cardRect.bottom <= 0 || cardRect.top >= window.innerHeight) {
       hint.style.visibility = 'hidden';
       return;
     }
     hint.style.visibility = 'visible';
-
-    const centeredLeft = (character.left + character.right - bubbleWidth) / 2;
-    const centeredTop = (character.top + character.bottom - bubbleHeight) / 2;
-    const candidates = [
-      { left: character.left, top: character.top - bubbleHeight - gap },
-      { left: character.left - bubbleWidth - gap, top: character.top },
-      { left: centeredLeft, top: character.top - bubbleHeight - gap },
-      { left: character.right + gap, top: character.top },
-      { left: centeredLeft, top: character.bottom + gap },
-    ];
-    const maxLeft = Math.max(viewport.left, viewport.right - bubbleWidth);
-    const maxTop = Math.max(viewport.top, viewport.bottom - bubbleHeight);
-    let best = null;
-    let bestScore = Number.POSITIVE_INFINITY;
-    candidates.forEach((candidate, index) => {
-      const left = THREE.MathUtils.clamp(candidate.left, viewport.left, maxLeft);
-      const top = THREE.MathUtils.clamp(candidate.top, viewport.top, maxTop);
-      const overlapsCharacter = left < character.right && left + bubbleWidth > character.left
-        && top < character.bottom && top + bubbleHeight > character.top;
-      const displacement = Math.abs(left - candidate.left) + Math.abs(top - candidate.top);
-      const score = (overlapsCharacter ? 100000 : 0) + index * 100 + displacement;
-      if (score < bestScore) {
-        best = { left, top };
-        bestScore = score;
-      }
-    });
-
-    hint.style.left = `${window.scrollX + best.left}px`;
-    hint.style.top = `${window.scrollY + best.top}px`;
+    const left = THREE.MathUtils.clamp(
+      cardRect.left + 12,
+      edge,
+      Math.max(edge, window.innerWidth - bubbleWidth - edge),
+    );
+    hint.style.left = `${window.scrollX + left}px`;
+    hint.style.top = `${window.scrollY + top}px`;
     hint.style.transform = 'none';
   };
   resizeObserver = new ResizeObserver(() => {
