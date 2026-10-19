@@ -400,7 +400,7 @@ if (canvasHost && characterButton) {
 
   const setFightBubbleCase = (isSecondFight) => {
     if (!speechBubble) return;
-    speechBubble.textContent = isSecondFight ? "YOU CAN'T CATCH ME!" : "You can't catch me!";
+    speechBubble.textContent = isSecondFight ? 'Too slow!' : "You can't catch me!";
     speechBubble.hidden = false;
   };
 
