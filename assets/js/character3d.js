@@ -207,7 +207,7 @@ if (canvasHost && characterButton) {
     if (!textureContext) return null;
     textureContext.drawImage(sourceImage, 0, 0, width, height);
     const pixels = textureContext.getImageData(0, 0, width, height);
-    const colors = { upper: [167, 188, 160], lower: [168, 197, 216] };
+    const colors = { upper: [130, 151, 122], lower: [126, 153, 181] };
     for (let y = 0; y < height; y += 1) {
       const maskY = Math.min(maskCanvas.height - 1, Math.floor(y * maskCanvas.height / height));
       for (let x = 0; x < width; x += 1) {
@@ -400,7 +400,7 @@ if (canvasHost && characterButton) {
 
   const setFightBubbleCase = (isSecondFight) => {
     if (!speechBubble) return;
-    speechBubble.textContent = isSecondFight ? "DON'T MESS WITH ME!" : "Don't mess with me!";
+    speechBubble.textContent = isSecondFight ? "YOU CAN'T CATCH ME!" : "You can't catch me!";
     speechBubble.hidden = false;
   };
 
