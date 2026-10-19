@@ -716,8 +716,8 @@ if (canvasHost && characterButton) {
   const positionHintBubble = () => {
     if (!hint || active) return;
     const stageRect = characterButton.getBoundingClientRect();
-    hint.style.left = `${stageRect.left + stageRect.width / 2}px`;
-    hint.style.top = `${Math.max(14, stageRect.top - hint.offsetHeight - 8)}px`;
+    hint.style.left = `${window.scrollX + stageRect.left + stageRect.width / 2}px`;
+    hint.style.top = `${Math.max(14, window.scrollY + stageRect.top - hint.offsetHeight - 8)}px`;
   };
   resizeObserver = new ResizeObserver(() => {
     resize();
