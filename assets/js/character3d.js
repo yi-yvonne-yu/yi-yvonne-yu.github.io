@@ -156,8 +156,16 @@ if (canvasHost && characterButton) {
     if (!maskContext) return null;
     maskContext.lineJoin = 'round';
     maskContext.lineWidth = 1.5;
+    const headMaskCanvas = document.createElement('canvas');
+    headMaskCanvas.width = maskCanvas.width;
+    headMaskCanvas.height = maskCanvas.height;
+    const headMaskContext = headMaskCanvas.getContext('2d', { willReadFrequently: true });
+    if (!headMaskContext) return null;
+    headMaskContext.lineJoin = 'round';
+    headMaskContext.lineWidth = 1.5;
 
     let drewGarment = false;
+    let drewHeadTexture = false;
     meshes.forEach((mesh) => {
       const geometry = mesh.geometry;
       const skinIndices = geometry.getAttribute('skinIndex');
@@ -205,24 +213,27 @@ if (canvasHost && characterButton) {
         const region = upperCount >= 2 ? 1 : lowerCount >= 2 ? 2 : headCount >= 2 ? 3 : 0;
         if (!region) continue;
 
-        maskContext.fillStyle = region === 1 ? '#ff0000' : region === 2 ? '#0000ff' : '#00ff00';
-        maskContext.beginPath();
+        const regionContext = region === 3 ? headMaskContext : maskContext;
+        regionContext.fillStyle = region === 1 ? '#ff0000' : region === 2 ? '#0000ff' : '#ffffff';
+        regionContext.beginPath();
         [a, b, c].forEach((vertex, corner) => {
           const x = uv.getX(vertex) * maskCanvas.width;
           const y = (1 - uv.getY(vertex)) * maskCanvas.height;
-          if (corner === 0) maskContext.moveTo(x, y);
-          else maskContext.lineTo(x, y);
+          if (corner === 0) regionContext.moveTo(x, y);
+          else regionContext.lineTo(x, y);
         });
-        maskContext.closePath();
-        maskContext.fill();
-        maskContext.strokeStyle = maskContext.fillStyle;
-        maskContext.stroke();
-        drewGarment = true;
+        regionContext.closePath();
+        regionContext.fill();
+        regionContext.strokeStyle = regionContext.fillStyle;
+        regionContext.stroke();
+        if (region === 3) drewHeadTexture = true;
+        else drewGarment = true;
       }
     });
 
-    if (!drewGarment) return null;
+    if (!drewGarment && !drewHeadTexture) return null;
     const mask = maskContext.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
+    const headMask = headMaskContext.getImageData(0, 0, headMaskCanvas.width, headMaskCanvas.height);
     const textureCanvas = document.createElement('canvas');
     textureCanvas.width = maskCanvas.width;
     textureCanvas.height = maskCanvas.height;
@@ -232,15 +243,30 @@ if (canvasHost && characterButton) {
     const textureHeight = textureCanvas.height;
     textureContext.drawImage(sourceImage, 0, 0, textureWidth, textureHeight);
     const pixels = textureContext.getImageData(0, 0, textureWidth, textureHeight);
-    const smoothingCanvas = document.createElement('canvas');
-    smoothingCanvas.width = textureWidth;
-    smoothingCanvas.height = textureHeight;
-    const smoothingContext = smoothingCanvas.getContext('2d', { willReadFrequently: true });
-    if (!smoothingContext) return null;
-    if ('filter' in smoothingContext) smoothingContext.filter = 'blur(24px)';
-    smoothingContext.drawImage(sourceImage, 0, 0, textureWidth, textureHeight);
-    if ('filter' in smoothingContext) smoothingContext.filter = 'none';
-    const smoothedPixels = smoothingContext.getImageData(0, 0, textureWidth, textureHeight);
+    const createMaskedBlur = (regionMaskCanvas, radius) => {
+      const maskedCanvas = document.createElement('canvas');
+      maskedCanvas.width = textureWidth;
+      maskedCanvas.height = textureHeight;
+      const maskedContext = maskedCanvas.getContext('2d');
+      const blurredCanvas = document.createElement('canvas');
+      blurredCanvas.width = textureWidth;
+      blurredCanvas.height = textureHeight;
+      const blurredContext = blurredCanvas.getContext('2d', { willReadFrequently: true });
+      if (!maskedContext || !blurredContext) return pixels;
+
+      maskedContext.drawImage(sourceImage, 0, 0, textureWidth, textureHeight);
+      maskedContext.globalCompositeOperation = 'destination-in';
+      maskedContext.drawImage(regionMaskCanvas, 0, 0, textureWidth, textureHeight);
+      maskedContext.globalCompositeOperation = 'source-over';
+
+      if ('filter' in blurredContext) blurredContext.filter = `blur(${radius}px)`;
+      blurredContext.drawImage(maskedCanvas, 0, 0);
+      if ('filter' in blurredContext) blurredContext.filter = 'none';
+      return blurredContext.getImageData(0, 0, textureWidth, textureHeight);
+    };
+    // Blur each UV region in isolation so nearby hair/skin islands cannot tint the clothes.
+    const smoothedPixels = createMaskedBlur(maskCanvas, 12);
+    const smoothedHeadPixels = drewHeadTexture ? createMaskedBlur(headMaskCanvas, 7) : smoothedPixels;
     const colors = { upper: [130, 151, 122], lower: [126, 153, 181] };
     const getMaskRegion = (x, y) => {
       if (x < 0 || y < 0 || x >= maskCanvas.width || y >= maskCanvas.height) return 0;
@@ -250,13 +276,19 @@ if (canvasHost && characterButton) {
       const blue = mask.data[offset + 2];
       if (red > green && red > blue) return 1;
       if (blue > red && blue > green) return 2;
-      if (green > red && green > blue) return 3;
       return 0;
+    };
+    const getTextureRegion = (x, y) => {
+      const garmentRegion = getMaskRegion(x, y);
+      if (garmentRegion) return garmentRegion;
+      if (x < 0 || y < 0 || x >= headMaskCanvas.width || y >= headMaskCanvas.height) return 0;
+      const offset = (y * headMaskCanvas.width + x) * 4;
+      return headMask.data[offset + 3] > 0 ? 3 : 0;
     };
     for (let y = 0; y < textureHeight; y += 1) {
       for (let x = 0; x < textureWidth; x += 1) {
         const pixelOffset = (y * textureWidth + x) * 4;
-        const region = getMaskRegion(x, y);
+        const region = getTextureRegion(x, y);
         if (!region) continue;
         const red = pixels.data[pixelOffset];
         const green = pixels.data[pixelOffset + 1];
@@ -264,20 +296,20 @@ if (canvasHost && characterButton) {
         const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
         const maxChannel = Math.max(red, green, blue);
         const maskInterior = x > 0 && y > 0 && x + 1 < textureWidth && y + 1 < textureHeight
-          && getMaskRegion(x - 1, y) === region
-          && getMaskRegion(x + 1, y) === region
-          && getMaskRegion(x, y - 1) === region
-          && getMaskRegion(x, y + 1) === region;
+          && getTextureRegion(x - 1, y) === region
+          && getTextureRegion(x + 1, y) === region
+          && getTextureRegion(x, y - 1) === region
+          && getTextureRegion(x, y + 1) === region;
 
         if (region === 3) {
           const isDarkHair = red > green + 4 && green > blue + 2 && red < 150 && green < 110;
           const isHairHighlight = maxChannel >= 80 && maxChannel < 220 && chroma <= 42;
           if (!maskInterior || (!isDarkHair && !isHairHighlight)) continue;
-          const smoothing = isHairHighlight ? 0.88 : 0.72;
+          const smoothing = isHairHighlight ? 0.76 : 0.5;
           for (let channel = 0; channel < 3; channel += 1) {
             pixels.data[pixelOffset + channel] = Math.round(THREE.MathUtils.lerp(
               pixels.data[pixelOffset + channel],
-              smoothedPixels.data[pixelOffset + channel],
+              smoothedHeadPixels.data[pixelOffset + channel],
               smoothing,
             ));
           }
@@ -285,9 +317,11 @@ if (canvasHost && characterButton) {
         }
 
         const garmentColor = region === 1 ? colors.upper : colors.lower;
-        if (maxChannel < 72 || chroma > 52) continue;
+        const isWarmSkinPixel = red > green + 16 && green > blue + 8 && red > 82;
+        if (isWarmSkinPixel || chroma > 88) continue;
         const neutralFabric = 1 - THREE.MathUtils.smoothstep(chroma, 22, 52);
-        const smoothing = maskInterior ? neutralFabric * 0.96 : 0;
+        const smoothableFabric = 1 - THREE.MathUtils.smoothstep(chroma, 22, 88);
+        const smoothing = maskInterior ? smoothableFabric * 0.9 : 0;
         for (let channel = 0; channel < 3; channel += 1) {
           const original = pixels.data[pixelOffset + channel];
           const smoothed = THREE.MathUtils.lerp(original, smoothedPixels.data[pixelOffset + channel], smoothing);
