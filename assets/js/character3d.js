@@ -237,7 +237,7 @@ if (canvasHost && characterButton) {
     smoothingCanvas.height = textureHeight;
     const smoothingContext = smoothingCanvas.getContext('2d', { willReadFrequently: true });
     if (!smoothingContext) return null;
-    if ('filter' in smoothingContext) smoothingContext.filter = 'blur(3px)';
+    if ('filter' in smoothingContext) smoothingContext.filter = 'blur(24px)';
     smoothingContext.drawImage(sourceImage, 0, 0, textureWidth, textureHeight);
     if ('filter' in smoothingContext) smoothingContext.filter = 'none';
     const smoothedPixels = smoothingContext.getImageData(0, 0, textureWidth, textureHeight);
@@ -273,7 +273,7 @@ if (canvasHost && characterButton) {
           const isDarkHair = red > green + 4 && green > blue + 2 && red < 150 && green < 110;
           const isHairHighlight = maxChannel >= 80 && maxChannel < 220 && chroma <= 42;
           if (!maskInterior || (!isDarkHair && !isHairHighlight)) continue;
-          const smoothing = isHairHighlight ? 0.62 : 0.38;
+          const smoothing = isHairHighlight ? 0.88 : 0.72;
           for (let channel = 0; channel < 3; channel += 1) {
             pixels.data[pixelOffset + channel] = Math.round(THREE.MathUtils.lerp(
               pixels.data[pixelOffset + channel],
@@ -287,7 +287,7 @@ if (canvasHost && characterButton) {
         const garmentColor = region === 1 ? colors.upper : colors.lower;
         if (maxChannel < 72 || chroma > 52) continue;
         const neutralFabric = 1 - THREE.MathUtils.smoothstep(chroma, 22, 52);
-        const smoothing = maskInterior ? neutralFabric * 0.78 : 0;
+        const smoothing = maskInterior ? neutralFabric * 0.96 : 0;
         for (let channel = 0; channel < 3; channel += 1) {
           const original = pixels.data[pixelOffset + channel];
           const smoothed = THREE.MathUtils.lerp(original, smoothedPixels.data[pixelOffset + channel], smoothing);
