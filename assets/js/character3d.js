@@ -731,7 +731,7 @@ if (canvasHost && characterButton) {
     }
     hint.style.visibility = 'visible';
     const left = THREE.MathUtils.clamp(
-      imageRect.left - 8,
+      imageRect.left - 32,
       edge,
       Math.max(edge, window.innerWidth - bubbleWidth - edge),
     );
