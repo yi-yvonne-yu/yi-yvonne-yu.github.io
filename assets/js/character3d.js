@@ -318,6 +318,14 @@ if (canvasHost && characterButton) {
 
         const garmentColor = region === 1 ? colors.upper : colors.lower;
         const isWarmSkinPixel = red > green + 16 && green > blue + 8 && red > 82;
+        const textureLuminance = red * 0.299 + green * 0.587 + blue * 0.114;
+        if (region === 1 && !isWarmSkinPixel && chroma < 88 && textureLuminance < 140) {
+          // Remove the isolated dark marks from the pale green shirt texture.
+          for (let channel = 0; channel < 3; channel += 1) {
+            pixels.data[pixelOffset + channel] = colors.upper[channel];
+          }
+          continue;
+        }
         if (isWarmSkinPixel || chroma > 88) continue;
         const neutralFabric = 1 - THREE.MathUtils.smoothstep(chroma, 22, 52);
         const smoothableFabric = 1 - THREE.MathUtils.smoothstep(chroma, 22, 88);
