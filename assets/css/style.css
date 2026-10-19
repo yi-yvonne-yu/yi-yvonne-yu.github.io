@@ -697,6 +697,10 @@ main {
   min-width: 259px;
 }
 
+@media (max-width: 449px) {
+  main { margin-top: 52px; }
+}
+
 
 
 
