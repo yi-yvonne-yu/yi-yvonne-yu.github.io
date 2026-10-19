@@ -135,6 +135,7 @@ if (canvasHost && characterButton) {
     'leftshoulder', 'rightshoulder', 'leftarm', 'rightarm', 'leftforearm', 'rightforearm',
   ]);
   const lowerGarmentBones = new Set(['hips', 'leftupleg', 'rightupleg', 'leftleg', 'rightleg']);
+  const headTextureBones = new Set(['head']);
   const createClothingTexture = (sourceTexture, meshes) => {
     const sourceImage = sourceTexture.image;
     const width = sourceImage?.naturalWidth || sourceImage?.width;
@@ -166,6 +167,7 @@ if (canvasHost && characterButton) {
       for (let vertex = 0; vertex < positions.count; vertex += 1) {
         let upperWeight = 0;
         let lowerWeight = 0;
+        let headWeight = 0;
         for (let influence = 0; influence < skinIndices.itemSize; influence += 1) {
           const weight = skinWeights.getComponent(vertex, influence);
           if (weight <= 0) continue;
@@ -173,10 +175,12 @@ if (canvasHost && characterButton) {
           const boneName = bone ? normalizeBoneName(bone.name) : '';
           if (upperGarmentBones.has(boneName)) upperWeight += weight;
           if (lowerGarmentBones.has(boneName)) lowerWeight += weight;
+          if (headTextureBones.has(boneName)) headWeight += weight;
         }
         if (positions.getY(vertex) <= shoeCutoff) lowerWeight = 0;
         if (upperWeight >= 0.16 && upperWeight > lowerWeight * 1.08) vertexTypes[vertex] = 1;
         else if (lowerWeight >= 0.16 && lowerWeight > upperWeight * 1.08) vertexTypes[vertex] = 2;
+        else if (headWeight >= 0.5) vertexTypes[vertex] = 3;
       }
 
       const index = geometry.index;
@@ -191,10 +195,11 @@ if (canvasHost && characterButton) {
         const cType = vertexTypes[c];
         const upperCount = Number(aType === 1) + Number(bType === 1) + Number(cType === 1);
         const lowerCount = Number(aType === 2) + Number(bType === 2) + Number(cType === 2);
-        const region = upperCount >= 2 ? 1 : lowerCount >= 2 ? 2 : 0;
+        const headCount = Number(aType === 3) + Number(bType === 3) + Number(cType === 3);
+        const region = upperCount >= 2 ? 1 : lowerCount >= 2 ? 2 : headCount >= 2 ? 3 : 0;
         if (!region) continue;
 
-        maskContext.fillStyle = region === 1 ? '#ff0000' : '#0000ff';
+        maskContext.fillStyle = region === 1 ? '#ff0000' : region === 2 ? '#0000ff' : '#00ff00';
         maskContext.beginPath();
         [a, b, c].forEach((vertex, corner) => {
           const x = uv.getX(vertex) * maskCanvas.width;
@@ -213,34 +218,75 @@ if (canvasHost && characterButton) {
     if (!drewGarment) return null;
     const mask = maskContext.getImageData(0, 0, maskCanvas.width, maskCanvas.height);
     const textureCanvas = document.createElement('canvas');
-    textureCanvas.width = width;
-    textureCanvas.height = height;
+    textureCanvas.width = maskCanvas.width;
+    textureCanvas.height = maskCanvas.height;
     const textureContext = textureCanvas.getContext('2d', { willReadFrequently: true });
     if (!textureContext) return null;
-    textureContext.drawImage(sourceImage, 0, 0, width, height);
-    const pixels = textureContext.getImageData(0, 0, width, height);
+    const textureWidth = textureCanvas.width;
+    const textureHeight = textureCanvas.height;
+    textureContext.drawImage(sourceImage, 0, 0, textureWidth, textureHeight);
+    const pixels = textureContext.getImageData(0, 0, textureWidth, textureHeight);
+    const smoothingCanvas = document.createElement('canvas');
+    smoothingCanvas.width = textureWidth;
+    smoothingCanvas.height = textureHeight;
+    const smoothingContext = smoothingCanvas.getContext('2d', { willReadFrequently: true });
+    if (!smoothingContext) return null;
+    if ('filter' in smoothingContext) smoothingContext.filter = 'blur(3px)';
+    smoothingContext.drawImage(sourceImage, 0, 0, textureWidth, textureHeight);
+    if ('filter' in smoothingContext) smoothingContext.filter = 'none';
+    const smoothedPixels = smoothingContext.getImageData(0, 0, textureWidth, textureHeight);
     const colors = { upper: [130, 151, 122], lower: [126, 153, 181] };
-    for (let y = 0; y < height; y += 1) {
-      const maskY = Math.min(maskCanvas.height - 1, Math.floor(y * maskCanvas.height / height));
-      for (let x = 0; x < width; x += 1) {
-        const maskX = Math.min(maskCanvas.width - 1, Math.floor(x * maskCanvas.width / width));
-        const maskOffset = (maskY * maskCanvas.width + maskX) * 4;
-        const garmentColor = mask.data[maskOffset] > mask.data[maskOffset + 2] ? colors.upper
-          : mask.data[maskOffset + 2] > mask.data[maskOffset] ? colors.lower : null;
-        if (!garmentColor) continue;
-
-        const pixelOffset = (y * width + x) * 4;
+    const getMaskRegion = (x, y) => {
+      if (x < 0 || y < 0 || x >= maskCanvas.width || y >= maskCanvas.height) return 0;
+      const offset = (y * maskCanvas.width + x) * 4;
+      const red = mask.data[offset];
+      const green = mask.data[offset + 1];
+      const blue = mask.data[offset + 2];
+      if (red > green && red > blue) return 1;
+      if (blue > red && blue > green) return 2;
+      if (green > red && green > blue) return 3;
+      return 0;
+    };
+    for (let y = 0; y < textureHeight; y += 1) {
+      for (let x = 0; x < textureWidth; x += 1) {
+        const pixelOffset = (y * textureWidth + x) * 4;
+        const region = getMaskRegion(x, y);
+        if (!region) continue;
         const red = pixels.data[pixelOffset];
         const green = pixels.data[pixelOffset + 1];
         const blue = pixels.data[pixelOffset + 2];
         const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
-        if (Math.max(red, green, blue) < 72 || chroma > 52) continue;
+        const maxChannel = Math.max(red, green, blue);
+        const maskInterior = x > 0 && y > 0 && x + 1 < textureWidth && y + 1 < textureHeight
+          && getMaskRegion(x - 1, y) === region
+          && getMaskRegion(x + 1, y) === region
+          && getMaskRegion(x, y - 1) === region
+          && getMaskRegion(x, y + 1) === region;
 
+        if (region === 3) {
+          const isDarkHair = red > green + 4 && green > blue + 2 && red < 150 && green < 110;
+          const isHairHighlight = maxChannel >= 80 && maxChannel < 220 && chroma <= 42;
+          if (!maskInterior || (!isDarkHair && !isHairHighlight)) continue;
+          const smoothing = isHairHighlight ? 0.62 : 0.38;
+          for (let channel = 0; channel < 3; channel += 1) {
+            pixels.data[pixelOffset + channel] = Math.round(THREE.MathUtils.lerp(
+              pixels.data[pixelOffset + channel],
+              smoothedPixels.data[pixelOffset + channel],
+              smoothing,
+            ));
+          }
+          continue;
+        }
+
+        const garmentColor = region === 1 ? colors.upper : colors.lower;
+        if (maxChannel < 72 || chroma > 52) continue;
         const neutralFabric = 1 - THREE.MathUtils.smoothstep(chroma, 22, 52);
+        const smoothing = maskInterior ? neutralFabric * 0.78 : 0;
         for (let channel = 0; channel < 3; channel += 1) {
           const original = pixels.data[pixelOffset + channel];
-          const tinted = original * garmentColor[channel] / 255;
-          pixels.data[pixelOffset + channel] = Math.round(THREE.MathUtils.lerp(original, tinted, neutralFabric));
+          const smoothed = THREE.MathUtils.lerp(original, smoothedPixels.data[pixelOffset + channel], smoothing);
+          const tinted = smoothed * garmentColor[channel] / 255;
+          pixels.data[pixelOffset + channel] = Math.round(THREE.MathUtils.lerp(smoothed, tinted, neutralFabric));
         }
       }
     }
