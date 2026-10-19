@@ -716,10 +716,39 @@ if (canvasHost && characterButton) {
   const positionHintBubble = () => {
     if (!hint || active) return;
     const stageRect = characterButton.getBoundingClientRect();
-    const cardRect = characterButton.closest('.sidebar')?.getBoundingClientRect();
-    hint.style.left = `${window.scrollX + stageRect.left + stageRect.width / 2}px`;
-    const anchorTop = cardRect?.top ?? stageRect.top;
-    hint.style.top = `${Math.max(14, window.scrollY + anchorTop - hint.offsetHeight - 8)}px`;
+    const bubbleWidth = hint.offsetWidth;
+    const bubbleHeight = hint.offsetHeight;
+    const margin = 10;
+    const gap = 10;
+    const viewport = { left: window.scrollX + margin, right: window.scrollX + window.innerWidth - margin };
+    const character = {
+      left: window.scrollX + stageRect.left + stageRect.width * 0.2,
+      right: window.scrollX + stageRect.right - stageRect.width * 0.2,
+      top: window.scrollY + stageRect.top + stageRect.height * 0.05,
+      bottom: window.scrollY + stageRect.bottom,
+    };
+    const candidates = [
+      { left: character.right + gap, top: character.top },
+      { left: character.left - bubbleWidth - gap, top: character.top },
+      { left: character.left + (character.right - character.left - bubbleWidth) / 2, top: character.top - bubbleHeight - gap },
+      { left: character.left + (character.right - character.left - bubbleWidth) / 2, top: character.bottom + gap },
+    ];
+    let best = candidates[0];
+    let bestScore = Number.POSITIVE_INFINITY;
+    candidates.forEach((candidate, index) => {
+      const left = THREE.MathUtils.clamp(candidate.left, viewport.left, Math.max(viewport.left, viewport.right - bubbleWidth));
+      const top = candidate.top;
+      const overlapsCharacter = left < character.right && left + bubbleWidth > character.left
+        && top < character.bottom && top + bubbleHeight > character.top;
+      const score = (overlapsCharacter ? 100000 : 0) + Math.abs(left - candidate.left) * 10 + index;
+      if (score < bestScore) {
+        best = { left, top };
+        bestScore = score;
+      }
+    });
+    hint.style.left = `${best.left}px`;
+    hint.style.top = `${Math.max(window.scrollY + margin, best.top)}px`;
+    hint.style.transform = 'none';
   };
   resizeObserver = new ResizeObserver(() => {
     resize();
