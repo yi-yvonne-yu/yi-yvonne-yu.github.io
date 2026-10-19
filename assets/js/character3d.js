@@ -288,42 +288,50 @@ if (canvasHost && characterButton) {
     const duration = clip.duration;
     if (!(duration > 0)) return clip;
 
-    const seamDuration = Math.min(0.45, duration * 0.2);
-    const seamStart = duration - seamDuration;
-    const segments = 8;
+    // Loop the active middle of the waving clip so its arm does not lower
+    // between repetitions. Smooth the short loop seam at a steady rate.
+    const loopStart = duration * 0.2;
+    const loopEnd = duration * 0.8;
+    const loopDuration = loopEnd - loopStart;
+    const seamDuration = Math.min(0.25, loopDuration * 0.18);
+    const seamStart = loopEnd - seamDuration;
+    const seamStartInLoop = seamStart - loopStart;
+    const segments = 6;
     const tracks = clip.tracks.map((track) => {
       if (!track.times.length) return track;
 
       const valueSize = track.getValueSize();
       const interpolant = track.createInterpolant();
-      const startPose = Array.from(interpolant.evaluate(0));
+      const startPose = Array.from(interpolant.evaluate(loopStart));
       const seamPose = Array.from(interpolant.evaluate(seamStart));
       const times = [];
       const values = [];
 
+      times.push(0);
+      values.push(...startPose);
       for (let keyIndex = 0; keyIndex < track.times.length; keyIndex += 1) {
+        if (track.times[keyIndex] <= loopStart) continue;
         if (track.times[keyIndex] >= seamStart) break;
-        times.push(track.times[keyIndex]);
+        times.push(track.times[keyIndex] - loopStart);
         const offset = keyIndex * valueSize;
         for (let valueIndex = 0; valueIndex < valueSize; valueIndex += 1) {
           values.push(track.values[offset + valueIndex]);
         }
       }
 
-      times.push(seamStart);
+      times.push(seamStartInLoop);
       values.push(...seamPose);
       for (let segment = 1; segment <= segments; segment += 1) {
         const progress = segment / segments;
-        const eased = progress * progress * (3 - 2 * progress);
-        times.push(seamStart + seamDuration * progress);
+        times.push(seamStartInLoop + seamDuration * progress);
 
         if (track.name.endsWith('.quaternion') && valueSize === 4) {
           const pose = new THREE.Quaternion().fromArray(seamPose)
-            .slerp(new THREE.Quaternion().fromArray(startPose), eased);
+            .slerp(new THREE.Quaternion().fromArray(startPose), progress);
           values.push(pose.x, pose.y, pose.z, pose.w);
         } else {
           for (let valueIndex = 0; valueIndex < valueSize; valueIndex += 1) {
-            values.push(THREE.MathUtils.lerp(seamPose[valueIndex], startPose[valueIndex], eased));
+            values.push(THREE.MathUtils.lerp(seamPose[valueIndex], startPose[valueIndex], progress));
           }
         }
       }
@@ -334,7 +342,7 @@ if (canvasHost && characterButton) {
       return seamlessTrack;
     });
 
-    return new THREE.AnimationClip(`${clip.name}-seamless-hover`, duration, tracks);
+    return new THREE.AnimationClip(`${clip.name}-continuous-hover`, loopDuration, tracks);
   };
 
   const getNextClickReaction = () => {
