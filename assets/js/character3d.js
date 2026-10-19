@@ -57,19 +57,13 @@ if (canvasHost && characterButton) {
     './assets/models/yvonne-rigged-swing-dancing.fbx',
     './assets/models/yvonne-rigged-house-dancing.fbx',
     './assets/models/yvonne-rigged-ymca-dance.fbx',
-    './assets/models/yvonne-rigged-headspin-end.fbx',
   ];
   const danceActions = new Array(danceSourcePaths.length).fill(null);
-  const headspinDanceIndex = danceSourcePaths.findIndex((path) => path.endsWith('headspin-end.fbx'));
   const createDanceOrder = () => {
-    const order = danceActions.map((_, index) => index).filter((index) => index !== headspinDanceIndex);
+    const order = danceActions.map((_, index) => index);
     for (let index = order.length - 1; index > 0; index -= 1) {
       const swapIndex = Math.floor(Math.random() * (index + 1));
       [order[index], order[swapIndex]] = [order[swapIndex], order[index]];
-    }
-    if (headspinDanceIndex >= 0) {
-      const headspinPosition = Math.floor(Math.random() * Math.max(order.length, 1));
-      order.splice(headspinPosition, 0, headspinDanceIndex);
     }
     return order;
   };
@@ -154,6 +148,7 @@ if (canvasHost && characterButton) {
     const maskContext = maskCanvas.getContext('2d', { willReadFrequently: true });
     if (!maskContext) return null;
     maskContext.lineJoin = 'round';
+    maskContext.lineWidth = 1.5;
 
     let drewGarment = false;
     meshes.forEach((mesh) => {
@@ -209,6 +204,8 @@ if (canvasHost && characterButton) {
         });
         maskContext.closePath();
         maskContext.fill();
+        maskContext.strokeStyle = maskContext.fillStyle;
+        maskContext.stroke();
         drewGarment = true;
       }
     });
@@ -822,6 +819,10 @@ if (canvasHost && characterButton) {
             const material = sourceMaterial.clone();
             material.map = clothingTexture;
             material.color.set(0xffffff);
+            if (material.roughness !== undefined) material.roughness = Math.max(material.roughness, 0.82);
+            if (material.metalness !== undefined) material.metalness = 0;
+            if (material.specularIntensity !== undefined) material.specularIntensity = Math.min(material.specularIntensity, 0.25);
+            if (material.shininess !== undefined) material.shininess = Math.min(material.shininess, 12);
             material.needsUpdate = true;
             return material;
           };
