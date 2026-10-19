@@ -100,6 +100,7 @@ if (canvasHost && characterButton) {
   let postFightResume = null;
   let postFightIdleTimer = null;
   let postFightIdleActive = false;
+  const pendingClickReactions = [];
   let activeClickResume = null;
   let activeClickHoldTimer = null;
   let poseState = 'idle';
@@ -476,6 +477,30 @@ if (canvasHost && characterButton) {
     characterButton.dispatchEvent(new Event(`character-track-${state}`));
   };
 
+  const startClickReaction = (reaction, resume) => {
+    postFightIdleActive = false;
+    postFightResume = null;
+    activeClickResume = reaction === 'whoa' ? resume : null;
+    fightResume = reaction === 'whoa' ? null : resume;
+    if (reaction === 'whoa') {
+      setPoseState('fight-idle');
+    } else {
+      const selectedFightAction = reaction === 'fist-b' ? fightBAction : fightAction;
+      setPoseState('fighting', null, { fightActionOverride: selectedFightAction });
+    }
+  };
+
+  const resumeOrPlayQueuedReaction = (resume) => {
+    const nextReaction = pendingClickReactions.shift();
+    if (nextReaction) {
+      startClickReaction(nextReaction, resume);
+      return;
+    }
+    postFightIdleActive = false;
+    setPoseState(getRequestedPose(), resume);
+    signalTrack('resume');
+  };
+
   const scheduleClickIdleResume = () => {
     window.clearTimeout(activeClickHoldTimer);
     activeClickHoldTimer = window.setTimeout(() => {
@@ -495,8 +520,7 @@ if (canvasHost && characterButton) {
         if (poseState !== 'idle') return;
         const idleResume = postFightResume;
         postFightResume = null;
-        setPoseState(getRequestedPose(), idleResume);
-        signalTrack('resume');
+        resumeOrPlayQueuedReaction(idleResume);
       }, fightIdleEllipsisDuration);
     }, fightIdleHoldDuration);
   };
@@ -526,7 +550,8 @@ if (canvasHost && characterButton) {
   document.addEventListener('pointerdown', (event) => {
     if (!active || !ready || !fightAction) return;
     const isMoving = ['walking-right', 'walking-home', 'dancing'].includes(poseState);
-    if (!isMoving) return;
+    const isInClickReaction = ['fight-idle', 'fighting'].includes(poseState) || postFightIdleActive;
+    if (!isMoving && !isInClickReaction) return;
     if (event.button !== 0) return;
     if (event.target instanceof Element && event.target.closest('button, a, input, textarea, select, summary, [role="button"], [contenteditable="true"]')) return;
 
@@ -544,13 +569,11 @@ if (canvasHost && characterButton) {
     event.preventDefault();
     event.stopImmediatePropagation();
     const reaction = getNextClickReaction();
-    signalTrack('pause');
-    if (reaction === 'whoa') {
-      activeClickResume = captureMovingPose();
-      setPoseState('fight-idle');
+    if (isMoving) {
+      signalTrack('pause');
+      startClickReaction(reaction, captureMovingPose());
     } else {
-      const selectedFightAction = reaction === 'fist-b' ? fightBAction : fightAction;
-      setPoseState('fighting', null, { fightActionOverride: selectedFightAction });
+      pendingClickReactions.push(reaction);
     }
   }, true);
 
@@ -774,8 +797,7 @@ if (canvasHost && characterButton) {
                 if (poseState !== 'idle') return;
                 const resume = postFightResume;
                 postFightResume = null;
-                setPoseState(getRequestedPose(), resume);
-                signalTrack('resume');
+                resumeOrPlayQueuedReaction(resume);
               }, idleAfterFistFightDuration);
             }
             return;
