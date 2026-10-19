@@ -341,6 +341,8 @@ if (canvasHost && characterButton) {
       walkAction?.fadeOut(0.2);
       danceActions.forEach((action) => action?.fadeOut(0.2));
       activeDanceAction = null;
+      waveAction?.setLoop(nextState === 'hover-wave' ? THREE.LoopRepeat : THREE.LoopOnce, nextState === 'hover-wave' ? Infinity : 1);
+      if (waveAction) waveAction.clampWhenFinished = nextState !== 'hover-wave';
       waveAction?.reset().fadeIn(0.25).play();
       walkYawFrom = modelTurn.rotation.y;
       walkYawTo = 0;
@@ -752,8 +754,6 @@ if (canvasHost && characterButton) {
         mixer.addEventListener('finished', (event) => {
           if (event.action === waveAction) {
             if (poseState === 'greeting') characterButton.dispatchEvent(new Event('character-wave-finished'));
-            else if (poseState === 'hover-wave' && !active && pointerNearCharacter) waveAction.reset().play();
-            else if (poseState === 'hover-wave') setPoseState('idle');
             return;
           }
 
