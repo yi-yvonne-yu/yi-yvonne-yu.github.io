@@ -59,21 +59,27 @@ if (canvasHost && characterButton) {
     './assets/models/yvonne-rigged-ymca-dance.fbx',
   ];
   const danceActions = new Array(danceSourcePaths.length).fill(null);
+  let lastSelectedDanceIndex = null;
   const createDanceOrder = () => {
-    const openingJazz = Math.random() < 0.5 ? 0 : 1;
-    const closingJazz = openingJazz === 0 ? 1 : 0;
-    const middleOrder = danceActions
-      .map((_, index) => index)
-      .filter((index) => index !== 0 && index !== 1 && index !== 5);
-    for (let index = middleOrder.length - 1; index > 0; index -= 1) {
-      const swapIndex = Math.floor(Math.random() * (index + 1));
-      [middleOrder[index], middleOrder[swapIndex]] = [middleOrder[swapIndex], middleOrder[index]];
-    }
-    const ymcaPosition = Math.floor(Math.random() * (middleOrder.length + 1));
-    middleOrder.splice(ymcaPosition, 0, 5, 5, 5);
-    return [openingJazz, ...middleOrder, closingJazz];
+    const availableDances = danceActions
+      .map((action, index) => ({ index, duration: action?.getClip().duration }))
+      .filter(({ duration }) => Number.isFinite(duration) && duration > 0);
+    if (!availableDances.length) return [];
+
+    const choices = availableDances.filter(({ index }) => index !== lastSelectedDanceIndex);
+    const selected = choices[Math.floor(Math.random() * choices.length)] || availableDances[0];
+    const durations = availableDances.map(({ duration }) => duration).sort((a, b) => a - b);
+    const middle = Math.floor(durations.length / 2);
+    const typicalDuration = durations.length % 2
+      ? durations[middle]
+      : (durations[middle - 1] + durations[middle]) / 2;
+    const targetDanceDuration = typicalDuration * 5;
+    const repetitions = Math.max(1, Math.round(targetDanceDuration / selected.duration));
+
+    lastSelectedDanceIndex = selected.index;
+    return Array.from({ length: repetitions }, () => selected.index);
   };
-  let danceOrder = createDanceOrder();
+  let danceOrder = [];
   const clickReactionNames = ['whoa', 'fist-a', 'fist-b'];
   const createClickReactionOrder = (previousLast = null) => {
     const order = [...clickReactionNames];
