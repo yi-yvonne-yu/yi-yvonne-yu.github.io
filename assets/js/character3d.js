@@ -60,12 +60,18 @@ if (canvasHost && characterButton) {
   ];
   const danceActions = new Array(danceSourcePaths.length).fill(null);
   const createDanceOrder = () => {
-    const order = danceActions.map((_, index) => index);
-    for (let index = order.length - 1; index > 0; index -= 1) {
+    const openingJazz = Math.random() < 0.5 ? 0 : 1;
+    const closingJazz = openingJazz === 0 ? 1 : 0;
+    const middleOrder = danceActions
+      .map((_, index) => index)
+      .filter((index) => index !== 0 && index !== 1 && index !== 5);
+    for (let index = middleOrder.length - 1; index > 0; index -= 1) {
       const swapIndex = Math.floor(Math.random() * (index + 1));
-      [order[index], order[swapIndex]] = [order[swapIndex], order[index]];
+      [middleOrder[index], middleOrder[swapIndex]] = [middleOrder[swapIndex], middleOrder[index]];
     }
-    return order;
+    const ymcaPosition = Math.floor(Math.random() * (middleOrder.length + 1));
+    middleOrder.splice(ymcaPosition, 0, 5, 5, 5);
+    return [openingJazz, ...middleOrder, closingJazz];
   };
   let danceOrder = createDanceOrder();
   let activeDanceAction = null;
@@ -927,17 +933,23 @@ if (canvasHost && characterButton) {
           }
 
           const finishedActionIndex = danceActions.indexOf(event.action);
-          const finishedSequenceIndex = danceOrder.indexOf(finishedActionIndex);
-          if (finishedActionIndex < 0 || finishedSequenceIndex < 0 || event.action !== activeDanceAction || poseState !== 'dancing') return;
+          if (finishedActionIndex < 0 || danceOrder[danceIndex] !== finishedActionIndex || event.action !== activeDanceAction || poseState !== 'dancing') return;
 
-          event.action.fadeOut(0.25);
-          danceIndex = finishedSequenceIndex + 1;
+          danceIndex += 1;
           if (danceIndex < danceOrder.length) {
-            activeDanceAction = danceActions[danceOrder[danceIndex]];
-            activeDanceAction.reset().fadeIn(0.25).play();
+            const nextDanceAction = danceActions[danceOrder[danceIndex]];
+            if (nextDanceAction === event.action) {
+              activeDanceAction = nextDanceAction;
+              activeDanceAction.reset().play();
+            } else {
+              event.action.fadeOut(0.25);
+              activeDanceAction = nextDanceAction;
+              activeDanceAction.reset().fadeIn(0.25).play();
+            }
             return;
           }
 
+          event.action.fadeOut(0.25);
           activeDanceAction = null;
           characterButton.dispatchEvent(new Event('character-dance-finished'));
         });
