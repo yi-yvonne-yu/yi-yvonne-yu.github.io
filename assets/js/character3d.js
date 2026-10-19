@@ -60,6 +60,20 @@ if (canvasHost && characterButton) {
     './assets/models/yvonne-rigged-headspin-end.fbx',
   ];
   const danceActions = new Array(danceSourcePaths.length).fill(null);
+  const headspinDanceIndex = danceSourcePaths.findIndex((path) => path.endsWith('headspin-end.fbx'));
+  const createDanceOrder = () => {
+    const order = danceActions.map((_, index) => index).filter((index) => index !== headspinDanceIndex);
+    for (let index = order.length - 1; index > 0; index -= 1) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [order[index], order[swapIndex]] = [order[swapIndex], order[index]];
+    }
+    if (headspinDanceIndex >= 0) {
+      const headspinPosition = Math.floor(Math.random() * Math.max(order.length, 1));
+      order.splice(headspinPosition, 0, headspinDanceIndex);
+    }
+    return order;
+  };
+  let danceOrder = createDanceOrder();
   let activeDanceAction = null;
   let danceIndex = 0;
   let fightResume = null;
@@ -99,6 +113,7 @@ if (canvasHost && characterButton) {
   let ready = false;
   let fightActionPlaying = false;
   let queueNextFightRequested = false;
+  let lastFightAction = null;
   let pointerNearCharacter = false;
   let lastPointerPosition = null;
   let elapsedSinceWake = 0;
@@ -273,6 +288,10 @@ if (canvasHost && characterButton) {
     return retargeted;
   };
 
+  const getNextFightAction = () => (
+    fightBAction !== fightAction && lastFightAction === fightAction ? fightBAction : fightAction
+  );
+
   const setPoseState = (nextState, resumeFromFightOverride = null, { snapTurn = false } = {}) => {
     if (nextState === poseState) {
       if (snapTurn && (nextState === 'walking-right' || nextState === 'walking-home')) {
@@ -306,6 +325,7 @@ if (canvasHost && characterButton) {
       fightResume ||= {
         poseState,
         danceIndex,
+        danceOrder: poseState === 'dancing' ? [...danceOrder] : null,
         animationTime: poseState === 'dancing' ? activeDanceAction?.time : walkAction?.time,
       };
     } else if (poseState === 'fighting') {
@@ -360,8 +380,14 @@ if (canvasHost && characterButton) {
       fightBAction?.fadeOut(0.25);
       walkAction?.fadeOut(0.35);
       danceActions.forEach((action) => action?.stop());
-      danceIndex = resumeFromFight?.poseState === 'dancing' ? resumeFromFight.danceIndex : 0;
-      activeDanceAction = danceActions[danceIndex];
+      if (resumeFromFight?.poseState === 'dancing') {
+        danceOrder = resumeFromFight.danceOrder ? [...resumeFromFight.danceOrder] : createDanceOrder();
+        danceIndex = resumeFromFight.danceIndex;
+      } else {
+        danceOrder = createDanceOrder();
+        danceIndex = 0;
+      }
+      activeDanceAction = danceActions[danceOrder[danceIndex]];
       activeDanceAction?.reset().fadeIn(0.35).play();
       if (resumeFromFight?.poseState === 'dancing' && Number.isFinite(resumeFromFight.animationTime)) {
         activeDanceAction.time = resumeFromFight.animationTime;
@@ -390,8 +416,9 @@ if (canvasHost && characterButton) {
       danceActions.forEach((action) => action?.fadeOut(0.12));
       activeDanceAction = null;
       fightActionPlaying = true;
-      activeFightAction = fightAction;
-      fightAction?.reset().fadeIn(0.12).play();
+      activeFightAction = getNextFightAction();
+      lastFightAction = activeFightAction;
+      activeFightAction?.reset().fadeIn(0.12).play();
     } else {
       waveAction?.fadeOut(0.3);
       fightIdleAction?.fadeOut(0.3);
@@ -431,6 +458,7 @@ if (canvasHost && characterButton) {
   const captureMovingPose = () => ({
     poseState,
     danceIndex,
+    danceOrder: poseState === 'dancing' ? [...danceOrder] : null,
     animationTime: poseState === 'dancing' ? activeDanceAction?.time : walkAction?.time,
   });
   const signalTrack = (state) => {
@@ -555,6 +583,7 @@ if (canvasHost && characterButton) {
       activeClickResume = postFightResume || {
         poseState: getRequestedPose(),
         danceIndex,
+        danceOrder: poseState === 'dancing' ? [...danceOrder] : null,
         animationTime: poseState === 'dancing' ? activeDanceAction?.time : walkAction?.time,
       };
       postFightResume = null;
@@ -823,7 +852,8 @@ if (canvasHost && characterButton) {
               if (queueNextFightRequested) {
                 queueNextFightRequested = false;
                 event.action.fadeOut(0.12);
-                activeFightAction = fightBAction || fightAction;
+                activeFightAction = getNextFightAction();
+                lastFightAction = activeFightAction;
                 setFightBubbleCase(true);
                 fightActionPlaying = true;
                 activeFightAction.reset().fadeIn(0.12).play();
@@ -849,13 +879,14 @@ if (canvasHost && characterButton) {
             return;
           }
 
-          const finishedIndex = danceActions.indexOf(event.action);
-          if (finishedIndex < 0 || event.action !== activeDanceAction || poseState !== 'dancing') return;
+          const finishedActionIndex = danceActions.indexOf(event.action);
+          const finishedSequenceIndex = danceOrder.indexOf(finishedActionIndex);
+          if (finishedActionIndex < 0 || finishedSequenceIndex < 0 || event.action !== activeDanceAction || poseState !== 'dancing') return;
 
           event.action.fadeOut(0.25);
-          danceIndex = finishedIndex + 1;
-          if (danceIndex < danceActions.length) {
-            activeDanceAction = danceActions[danceIndex];
+          danceIndex = finishedSequenceIndex + 1;
+          if (danceIndex < danceOrder.length) {
+            activeDanceAction = danceActions[danceOrder[danceIndex]];
             activeDanceAction.reset().fadeIn(0.25).play();
             return;
           }
