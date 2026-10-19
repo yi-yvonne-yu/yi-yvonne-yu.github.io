@@ -121,6 +121,69 @@ if (canvasHost && characterButton) {
   };
 
   const normalizeBoneName = (name) => name.replace(/^.*:/, '').replace(/^mixamorig/i, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+  const upperGarmentBones = new Set(['spine', 'spine1', 'spine2', 'spine3']);
+  const lowerGarmentBones = new Set(['hips', 'leftupleg', 'rightupleg', 'leftleg', 'rightleg']);
+  const addGarmentWeights = (mesh) => {
+    const skinIndices = mesh.geometry.getAttribute('skinIndex');
+    const skinWeights = mesh.geometry.getAttribute('skinWeight');
+    if (!skinIndices || !skinWeights || !mesh.skeleton?.bones?.length) return false;
+
+    const garmentWeights = new Float32Array(skinIndices.count * 2);
+    for (let vertex = 0; vertex < skinIndices.count; vertex += 1) {
+      let upperWeight = 0;
+      let lowerWeight = 0;
+      for (let influence = 0; influence < skinIndices.itemSize; influence += 1) {
+        const weight = skinWeights.getComponent(vertex, influence);
+        if (weight <= 0) continue;
+        const bone = mesh.skeleton.bones[skinIndices.getComponent(vertex, influence)];
+        const boneName = bone ? normalizeBoneName(bone.name) : '';
+        if (upperGarmentBones.has(boneName)) upperWeight += weight;
+        if (lowerGarmentBones.has(boneName)) lowerWeight += weight;
+      }
+      garmentWeights[vertex * 2] = upperWeight;
+      garmentWeights[vertex * 2 + 1] = lowerWeight;
+    }
+    mesh.geometry.setAttribute('garmentWeights', new THREE.BufferAttribute(garmentWeights, 2));
+    return true;
+  };
+
+  const applyClothingTint = (material) => {
+    const matchaGreen = new THREE.Color('#A7BCA0');
+    const lightDenim = new THREE.Color('#A8C5D8');
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.matchaGreen = { value: matchaGreen };
+      shader.uniforms.lightDenim = { value: lightDenim };
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          '#include <common>\nattribute vec2 garmentWeights;\nvarying vec2 vGarmentWeights;',
+        )
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGarmentWeights = garmentWeights;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          '#include <common>\nvarying vec2 vGarmentWeights;\nuniform vec3 matchaGreen;\nuniform vec3 lightDenim;',
+        )
+        .replace(
+          '#include <map_fragment>',
+          `#include <map_fragment>
+          float fabricLuma = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+          float fabricChroma = max(max(diffuseColor.r, diffuseColor.g), diffuseColor.b)
+            - min(min(diffuseColor.r, diffuseColor.g), diffuseColor.b);
+          float neutralFabric = 1.0 - smoothstep(0.06, 0.20, fabricChroma);
+          float visibleFabric = smoothstep(0.08, 0.32, fabricLuma);
+          float fabricMask = neutralFabric * visibleFabric;
+          float fabricShade = clamp(fabricLuma / 0.88, 0.58, 1.0);
+          float upperMask = clamp(vGarmentWeights.x * fabricMask, 0.0, 1.0);
+          float lowerMask = clamp(vGarmentWeights.y * fabricMask, 0.0, 1.0);
+          diffuseColor.rgb = mix(diffuseColor.rgb, matchaGreen * fabricShade, upperMask);
+          diffuseColor.rgb = mix(diffuseColor.rgb, lightDenim * fabricShade, lowerMask);`,
+        );
+    };
+    material.customProgramCacheKey = () => 'yvonne-matcha-denim-garments-v1';
+    material.needsUpdate = true;
+  };
+
   const retargetClip = (clip, { keepIdleUpperBodyUpright = false } = {}) => {
     const retargeted = clip.clone();
     const keptTracks = [];
@@ -630,9 +693,11 @@ if (canvasHost && characterButton) {
         texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
         model.traverse((object) => {
           if (!object.isMesh) return;
+          const hasGarmentWeights = object.isSkinnedMesh && addGarmentWeights(object);
           const applyTexture = (material) => {
             material.map = texture;
             material.color.set(0xffffff);
+            if (hasGarmentWeights) applyClothingTint(material);
             material.needsUpdate = true;
           };
           if (Array.isArray(object.material)) object.material.forEach(applyTexture);
