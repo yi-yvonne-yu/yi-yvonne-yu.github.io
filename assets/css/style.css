@@ -399,7 +399,24 @@ html {
 body {
   background: var(--smoky-black);
   min-height: 100vh;
+  position: relative;
+  isolation: isolate;
   transition: background 900ms ease, color 900ms ease;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 18% 16%, #ffc9d8 0, transparent 34%),
+    radial-gradient(ellipse at 84% 25%, #b9e9ff 0, transparent 34%),
+    radial-gradient(ellipse at 68% 90%, #e9dcff 0, transparent 38%),
+    #fff6dc;
+  opacity: 0;
+  transition: opacity 900ms ease;
 }
 
 body.character-awake {
@@ -426,12 +443,10 @@ body.character-awake {
   --shadow-4: 0 20px 38px rgba(70, 49, 72, 0.12);
   --shadow-5: 0 22px 56px rgba(70, 49, 72, 0.18);
   color: #342b3a;
-  background: radial-gradient(ellipse at 18% 16%, #ffc9d8 0, transparent 34%),
-    radial-gradient(ellipse at 84% 25%, #b9e9ff 0, transparent 34%),
-    radial-gradient(ellipse at 68% 90%, #e9dcff 0, transparent 38%), #fff6dc;
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
+  background: transparent;
 }
+
+body.character-awake::before { opacity: 1; }
 
 body.character-awake .sidebar,
 body.character-awake article {
