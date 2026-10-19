@@ -274,7 +274,16 @@ if (canvasHost && characterButton) {
   };
 
   const setPoseState = (nextState, resumeFromFightOverride = null, { snapTurn = false } = {}) => {
-    if (nextState === poseState) return;
+    if (nextState === poseState) {
+      if (snapTurn && (nextState === 'walking-right' || nextState === 'walking-home')) {
+        const facingYaw = nextState === 'walking-right' ? 0.72 : -0.72;
+        walkYawFrom = facingYaw;
+        walkYawTo = facingYaw;
+        walkYawElapsed = walkYawDuration;
+        modelTurn.rotation.y = facingYaw;
+      }
+      return;
+    }
     const wasWalking = ['walking-right', 'walking-home'].includes(poseState);
     if (speechBubble) {
       let bubbleText = '';

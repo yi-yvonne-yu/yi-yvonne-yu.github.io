@@ -152,10 +152,9 @@ const getTrackPosition = (side) => Number.parseFloat(
 ) || 0;
 
 const setCharacterWalkFacing = (from, to, { syncImmediately = false } = {}) => {
-  const wasMovingLeft = document.body.classList.contains('character-returning');
   const isMovingLeft = to < from;
   document.body.classList.toggle('character-returning', isMovingLeft);
-  if (syncImmediately && wasMovingLeft !== isMovingLeft) {
+  if (syncImmediately) {
     document.body.dispatchEvent(new CustomEvent('character-walk-direction-change', {
       detail: { direction: isMovingLeft ? 'left' : 'right' },
     }));
@@ -169,6 +168,7 @@ const startTrackAnimation = (move, from, to, duration) => {
     { duration, easing: 'linear', fill: 'forwards' },
   );
   move.animation = animation;
+  if (Math.abs(to - from) >= 1) move.direction = Math.sign(to - from);
   move.duration = duration;
   move.to = to;
   animation.onfinish = () => {
@@ -244,8 +244,11 @@ const resizeCharacterTrack = () => {
     const animation = move.animation;
     const currentLeft = clampLeft(visualLeft);
     const targetLeft = getTrackPosition(move.targetSide);
-    const routeStart = getTrackPosition(move.targetSide === 'end' ? 'start' : 'end');
-    setCharacterWalkFacing(routeStart, targetLeft, { syncImmediately: true });
+    const movement = targetLeft - currentLeft;
+    const direction = Math.abs(movement) >= 1
+      ? Math.sign(movement)
+      : move.direction || (move.targetSide === 'end' ? 1 : -1);
+    setCharacterWalkFacing(direction < 0 ? 1 : 0, direction < 0 ? 0 : 1, { syncImmediately: true });
     if (Math.abs(currentLeft - visualLeft) < 0.5 && Math.abs(targetLeft - move.to) < 0.5) return;
     const remaining = Math.max(350, Math.min(8000, Math.abs(targetLeft - currentLeft) * 12));
     animation.onfinish = null;
