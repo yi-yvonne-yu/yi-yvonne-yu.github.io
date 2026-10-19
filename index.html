@@ -15,12 +15,19 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./assets/css/style.css">
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
 </head>
 <body>
   <main>
     <aside class="sidebar" data-sidebar>
       <div class="sidebar-info">
-        <figure class="avatar-box"><img src="./assets/images/portrait_2026.png" alt="Portrait of Yi Yvonne Yu" width="80"></figure>
+        <figure class="avatar-box">
+          <button class="character-stage" type="button" data-character aria-pressed="false" aria-label="Say hi to Yi Yvonne Yu">
+            <span class="character-hint" data-character-hint>Loading 3D character…</span>
+            <div class="character-canvas" data-character-canvas aria-hidden="true"></div>
+            <span class="character-speech" aria-live="polite">Hi, I’m Yvonne!</span>
+          </button>
+        </figure>
         <div class="info-content"><h1 class="name" title="Yi Yvonne Yu">Yi Yvonne Yu</h1><p class="title">Ph.D. Student · Computer Science</p></div>
         <button class="info_more-btn" data-sidebar-btn><span>Show Contacts</span><ion-icon name="chevron-down"></ion-icon></button>
       </div>
@@ -102,6 +109,7 @@
     </div>
   </main>
   <script src="./assets/js/script.js"></script>
+  <script type="module" src="./assets/js/character3d.js"></script>
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 </body>
