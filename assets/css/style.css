@@ -519,7 +519,7 @@ body.character-awake::-webkit-scrollbar-thumb:hover { background: #b5a1bb; }
   padding: 6px 10px; box-shadow: 0 5px 18px rgba(40,20,50,.12); pointer-events: none;
 }
 .character-speech { z-index: 2147483001; }
-.character-hint { position: absolute; top: -36px; max-width: calc(100vw - 16px); white-space: normal; text-align: center; transform: none; animation: hint-bob 2s ease-in-out infinite; }
+.character-hint { position: fixed; top: -36px; max-width: calc(100vw - 16px); white-space: normal; text-align: center; transform: none; animation: hint-bob 2s ease-in-out infinite; }
 .character-speech { top: 0; opacity: 0; transform: translate(-50%, 8px) scale(.9); transition: opacity .35s ease; }
 .character-awake .character-hint { opacity: 0; }
 .character-awake .character-speech { top: 4%; left: 64%; opacity: 1; transform: translate(0, -2px) scale(1); transition-delay: .25s; }

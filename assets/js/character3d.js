@@ -736,8 +736,8 @@ if (canvasHost && characterButton) {
       edge,
       Math.max(edge, window.innerWidth - bubbleWidth - edge),
     );
-    hint.style.left = `${window.scrollX + left}px`;
-    hint.style.top = `${window.scrollY + top}px`;
+    hint.style.left = `${left}px`;
+    hint.style.top = `${top}px`;
     hint.style.transform = 'none';
   };
   resizeObserver = new ResizeObserver(() => {
