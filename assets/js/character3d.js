@@ -716,19 +716,20 @@ if (canvasHost && characterButton) {
   const positionHintBubble = () => {
     if (!hint || active) return;
     const stageRect = characterButton.getBoundingClientRect();
+    const avatarRect = characterButton.closest('.avatar-box')?.getBoundingClientRect() ?? stageRect;
     const bubbleWidth = hint.offsetWidth;
     const bubbleHeight = hint.offsetHeight;
     const gap = 10;
     const pageTopMargin = window.innerWidth <= 449 ? 52 : 10;
-    const desiredLeft = window.scrollX + stageRect.left + (stageRect.width - bubbleWidth) / 2;
+    const desiredLeft = window.scrollX + avatarRect.left + (avatarRect.width - bubbleWidth) / 2;
     const left = THREE.MathUtils.clamp(
       desiredLeft,
       window.scrollX + 10,
       Math.max(window.scrollX + 10, window.scrollX + window.innerWidth - bubbleWidth - 10),
     );
-    const aboveCharacter = window.scrollY + stageRect.top - bubbleHeight - gap;
+    const aboveAvatar = window.scrollY + avatarRect.top - bubbleHeight - gap;
     hint.style.left = `${left}px`;
-    hint.style.top = `${Math.max(pageTopMargin, aboveCharacter)}px`;
+    hint.style.top = `${Math.max(pageTopMargin, aboveAvatar)}px`;
     hint.style.transform = 'none';
   };
   resizeObserver = new ResizeObserver(() => {
