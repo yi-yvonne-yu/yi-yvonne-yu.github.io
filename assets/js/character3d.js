@@ -715,24 +715,23 @@ if (canvasHost && characterButton) {
   };
   const positionHintBubble = () => {
     if (!hint || active) return;
-    const cardRect = characterButton.closest('.sidebar')?.getBoundingClientRect();
-    if (!cardRect) return;
+    const imageRect = characterButton.closest('.avatar-box')?.getBoundingClientRect();
+    if (!imageRect) return;
     const bubbleWidth = hint.offsetWidth;
     const bubbleHeight = hint.offsetHeight;
-    const gap = 8;
+    const gap = 6;
     const edge = 8;
-    const top = cardRect.top - bubbleHeight - gap;
+    const top = imageRect.top - bubbleHeight - gap;
 
-    // Keep the hint outside the entire profile card so it never covers the
-    // avatar, name, degree, or contact button. Hide it when scrolling leaves
-    // no clear space above the card.
-    if (top < edge || cardRect.bottom <= 0 || cardRect.top >= window.innerHeight) {
+    // Anchor the hint to the office image's upper-left edge. Hide it when
+    // scrolling leaves no clear space above the image rather than covering it.
+    if (top < edge || imageRect.bottom <= 0 || imageRect.top >= window.innerHeight) {
       hint.style.visibility = 'hidden';
       return;
     }
     hint.style.visibility = 'visible';
     const left = THREE.MathUtils.clamp(
-      cardRect.left + 12,
+      imageRect.left,
       edge,
       Math.max(edge, window.innerWidth - bubbleWidth - edge),
     );
