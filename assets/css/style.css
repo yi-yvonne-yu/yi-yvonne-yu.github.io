@@ -391,10 +391,14 @@ input, textarea {
 
 :focus { outline-color: var(--orange-yellow-crayola); }
 
-html { font-family: var(--ff-poppins); }
+html {
+  font-family: var(--ff-poppins);
+  background-color: #fff6dc;
+}
 
 body {
   background: var(--smoky-black);
+  min-height: 100vh;
   transition: background 900ms ease, color 900ms ease;
 }
 
@@ -425,6 +429,8 @@ body.character-awake {
   background: radial-gradient(ellipse at 18% 16%, #ffc9d8 0, transparent 34%),
     radial-gradient(ellipse at 84% 25%, #b9e9ff 0, transparent 34%),
     radial-gradient(ellipse at 68% 90%, #e9dcff 0, transparent 38%), #fff6dc;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
 }
 
 body.character-awake .sidebar,
