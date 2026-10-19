@@ -210,7 +210,13 @@ if (canvasHost && characterButton) {
         const upperCount = Number(aType === 1) + Number(bType === 1) + Number(cType === 1);
         const lowerCount = Number(aType === 2) + Number(bType === 2) + Number(cType === 2);
         const headCount = Number(aType === 3) + Number(bType === 3) + Number(cType === 3);
-        const region = upperCount >= 2 ? 1 : lowerCount >= 2 ? 2 : headCount >= 2 ? 3 : 0;
+        let region = upperCount >= 2 ? 1 : lowerCount >= 2 ? 2 : headCount >= 2 ? 3 : 0;
+        // Include unambiguous garment faces at mixed-weight seams. Otherwise a face
+        // with one classified clothing vertex can leave a thin strip of source texture.
+        if (!region && headCount === 0) {
+          if (upperCount > 0 && lowerCount === 0) region = 1;
+          else if (lowerCount > 0 && upperCount === 0) region = 2;
+        }
         if (!region) continue;
 
         const regionContext = region === 3 ? headMaskContext : maskContext;
