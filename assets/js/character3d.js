@@ -747,10 +747,11 @@ if (canvasHost && characterButton) {
     const centeredLeft = (character.left + character.right - bubbleWidth) / 2;
     const centeredTop = (character.top + character.bottom - bubbleHeight) / 2;
     const candidates = [
+      { left: character.left, top: character.top - bubbleHeight - gap },
+      { left: character.left - bubbleWidth - gap, top: character.top },
       { left: centeredLeft, top: character.top - bubbleHeight - gap },
+      { left: character.right + gap, top: character.top },
       { left: centeredLeft, top: character.bottom + gap },
-      { left: character.left - bubbleWidth - gap, top: centeredTop },
-      { left: character.right + gap, top: centeredTop },
     ];
     const maxLeft = Math.max(viewport.left, viewport.right - bubbleWidth);
     const maxTop = Math.max(viewport.top, viewport.bottom - bubbleHeight);
@@ -762,7 +763,7 @@ if (canvasHost && characterButton) {
       const overlapsCharacter = left < character.right && left + bubbleWidth > character.left
         && top < character.bottom && top + bubbleHeight > character.top;
       const displacement = Math.abs(left - candidate.left) + Math.abs(top - candidate.top);
-      const score = (overlapsCharacter ? 100000 : 0) + displacement * 10 + index;
+      const score = (overlapsCharacter ? 100000 : 0) + index * 100 + displacement;
       if (score < bestScore) {
         best = { left, top };
         bestScore = score;
