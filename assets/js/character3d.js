@@ -49,6 +49,7 @@ if (canvasHost && characterButton) {
   let fightBAction = null;
   let activeFightAction = null;
   let waveAction = null;
+  let hoverWaveAction = null;
   let walkAction = null;
   const danceSourcePaths = [
     './assets/models/yvonne-rigged-jazz-dancing-1.fbx',
@@ -281,6 +282,61 @@ if (canvasHost && characterButton) {
     return retargeted;
   };
 
+  const createSeamlessLoopClip = (sourceClip) => {
+    const clip = sourceClip.clone();
+    clip.resetDuration();
+    const duration = clip.duration;
+    if (!(duration > 0)) return clip;
+
+    const seamDuration = Math.min(0.45, duration * 0.2);
+    const seamStart = duration - seamDuration;
+    const segments = 8;
+    const tracks = clip.tracks.map((track) => {
+      if (!track.times.length) return track;
+
+      const valueSize = track.getValueSize();
+      const interpolant = track.createInterpolant();
+      const startPose = Array.from(interpolant.evaluate(0));
+      const seamPose = Array.from(interpolant.evaluate(seamStart));
+      const times = [];
+      const values = [];
+
+      for (let keyIndex = 0; keyIndex < track.times.length; keyIndex += 1) {
+        if (track.times[keyIndex] >= seamStart) break;
+        times.push(track.times[keyIndex]);
+        const offset = keyIndex * valueSize;
+        for (let valueIndex = 0; valueIndex < valueSize; valueIndex += 1) {
+          values.push(track.values[offset + valueIndex]);
+        }
+      }
+
+      times.push(seamStart);
+      values.push(...seamPose);
+      for (let segment = 1; segment <= segments; segment += 1) {
+        const progress = segment / segments;
+        const eased = progress * progress * (3 - 2 * progress);
+        times.push(seamStart + seamDuration * progress);
+
+        if (track.name.endsWith('.quaternion') && valueSize === 4) {
+          const pose = new THREE.Quaternion().fromArray(seamPose)
+            .slerp(new THREE.Quaternion().fromArray(startPose), eased);
+          values.push(pose.x, pose.y, pose.z, pose.w);
+        } else {
+          for (let valueIndex = 0; valueIndex < valueSize; valueIndex += 1) {
+            values.push(THREE.MathUtils.lerp(seamPose[valueIndex], startPose[valueIndex], eased));
+          }
+        }
+      }
+
+      const seamlessTrack = track.clone();
+      seamlessTrack.times = new Float32Array(times);
+      seamlessTrack.values = new Float32Array(values);
+      return seamlessTrack;
+    });
+
+    return new THREE.AnimationClip(`${clip.name}-seamless-hover`, duration, tracks);
+  };
+
   const getNextClickReaction = () => {
     if (clickReactionIndex >= clickReactionOrder.length) clickReactionIndex = 0;
     return clickReactionOrder[clickReactionIndex++];
@@ -341,14 +397,19 @@ if (canvasHost && characterButton) {
       walkAction?.fadeOut(0.2);
       danceActions.forEach((action) => action?.fadeOut(0.2));
       activeDanceAction = null;
-      waveAction?.setLoop(nextState === 'hover-wave' ? THREE.LoopRepeat : THREE.LoopOnce, nextState === 'hover-wave' ? Infinity : 1);
-      if (waveAction) waveAction.clampWhenFinished = nextState !== 'hover-wave';
-      waveAction?.reset().fadeIn(0.25).play();
+      if (nextState === 'hover-wave' && hoverWaveAction) {
+        waveAction?.fadeOut(0.2);
+        hoverWaveAction.reset().fadeIn(0.25).play();
+      } else {
+        hoverWaveAction?.fadeOut(0.2);
+        waveAction?.reset().fadeIn(0.25).play();
+      }
       walkYawFrom = modelTurn.rotation.y;
       walkYawTo = 0;
       walkYawElapsed = 0;
     } else if (nextState === 'walking-right' || nextState === 'walking-home') {
       waveAction?.fadeOut(0.35);
+      hoverWaveAction?.fadeOut(0.35);
       idleAction?.fadeOut(0.35);
       fightIdleAction?.fadeOut(0.25);
       fightAction?.fadeOut(0.25);
@@ -374,6 +435,7 @@ if (canvasHost && characterButton) {
       }
     } else if (nextState === 'dancing') {
       waveAction?.fadeOut(0.35);
+      hoverWaveAction?.fadeOut(0.35);
       idleAction?.fadeOut(0.35);
       fightIdleAction?.fadeOut(0.25);
       fightAction?.fadeOut(0.25);
@@ -398,6 +460,7 @@ if (canvasHost && characterButton) {
     } else if (nextState === 'fight-idle') {
       idleAction?.fadeOut(0.25);
       waveAction?.fadeOut(0.2);
+      hoverWaveAction?.fadeOut(0.2);
       walkAction?.fadeOut(0.2);
       fightAction?.fadeOut(0.15);
       fightBAction?.fadeOut(0.15);
@@ -411,6 +474,7 @@ if (canvasHost && characterButton) {
       idleAction?.fadeOut(0.12);
       fightIdleAction?.fadeOut(0.12);
       waveAction?.fadeOut(0.12);
+      hoverWaveAction?.fadeOut(0.12);
       walkAction?.fadeOut(0.12);
       fightBAction?.fadeOut(0.12);
       danceActions.forEach((action) => action?.fadeOut(0.12));
@@ -420,6 +484,7 @@ if (canvasHost && characterButton) {
       activeFightAction?.reset().fadeIn(0.12).play();
     } else {
       waveAction?.fadeOut(0.3);
+      hoverWaveAction?.fadeOut(0.3);
       fightIdleAction?.fadeOut(0.3);
       fightAction?.fadeOut(0.2);
       fightBAction?.fadeOut(0.2);
@@ -809,9 +874,12 @@ if (canvasHost && characterButton) {
           // Meshy's @Waving export stores its single Mixamo action as "mixamo.com".
           || (model.animations.length === 1 ? model.animations[0] : null);
         if (waveClip) {
-          waveAction = mixer.clipAction(retargetClip(waveClip));
+          const retargetedWaveClip = retargetClip(waveClip);
+          waveAction = mixer.clipAction(retargetedWaveClip);
           waveAction.setLoop(THREE.LoopOnce, 1);
           waveAction.clampWhenFinished = true;
+          hoverWaveAction = mixer.clipAction(createSeamlessLoopClip(retargetedWaveClip));
+          hoverWaveAction.setLoop(THREE.LoopRepeat, Infinity);
         }
       }
 
@@ -938,6 +1006,7 @@ if (canvasHost && characterButton) {
         pointerNearCharacter = false;
       }
       waveAction?.stop();
+      hoverWaveAction?.stop();
       walkAction?.stop();
       danceActions.forEach((action) => action?.stop());
       activeDanceAction = null;
