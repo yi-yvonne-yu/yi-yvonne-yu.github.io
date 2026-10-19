@@ -210,13 +210,7 @@ if (canvasHost && characterButton) {
         const upperCount = Number(aType === 1) + Number(bType === 1) + Number(cType === 1);
         const lowerCount = Number(aType === 2) + Number(bType === 2) + Number(cType === 2);
         const headCount = Number(aType === 3) + Number(bType === 3) + Number(cType === 3);
-        let region = upperCount >= 2 ? 1 : lowerCount >= 2 ? 2 : headCount >= 2 ? 3 : 0;
-        // Include unambiguous garment faces at mixed-weight seams. Otherwise a face
-        // with one classified clothing vertex can leave a thin strip of source texture.
-        if (!region && headCount === 0) {
-          if (upperCount > 0 && lowerCount === 0) region = 1;
-          else if (lowerCount > 0 && upperCount === 0) region = 2;
-        }
+        const region = upperCount >= 2 ? 1 : lowerCount >= 2 ? 2 : headCount >= 2 ? 3 : 0;
         if (!region) continue;
 
         const regionContext = region === 3 ? headMaskContext : maskContext;
@@ -270,8 +264,9 @@ if (canvasHost && characterButton) {
       if ('filter' in blurredContext) blurredContext.filter = 'none';
       return blurredContext.getImageData(0, 0, textureWidth, textureHeight);
     };
-    // Blur the head UVs separately so hair details cannot bleed into the face.
-    const smoothedHeadPixels = drewHeadTexture ? createMaskedBlur(headMaskCanvas, 8) : pixels;
+    // Blur each UV region in isolation so nearby hair/skin islands cannot tint the clothes.
+    const smoothedPixels = createMaskedBlur(maskCanvas, 12);
+    const smoothedHeadPixels = drewHeadTexture ? createMaskedBlur(headMaskCanvas, 7) : smoothedPixels;
     const colors = { upper: [130, 151, 122], lower: [126, 153, 181] };
     const getMaskRegion = (x, y) => {
       if (x < 0 || y < 0 || x >= maskCanvas.width || y >= maskCanvas.height) return 0;
@@ -310,7 +305,7 @@ if (canvasHost && characterButton) {
           const isDarkHair = red > green + 4 && green > blue + 2 && red < 150 && green < 110;
           const isHairHighlight = maxChannel >= 80 && maxChannel < 220 && chroma <= 42;
           if (!maskInterior || (!isDarkHair && !isHairHighlight)) continue;
-          const smoothing = isHairHighlight ? 0.78 : 0.55;
+          const smoothing = isHairHighlight ? 0.76 : 0.5;
           for (let channel = 0; channel < 3; channel += 1) {
             pixels.data[pixelOffset + channel] = Math.round(THREE.MathUtils.lerp(
               pixels.data[pixelOffset + channel],
@@ -323,11 +318,15 @@ if (canvasHost && characterButton) {
 
         const garmentColor = region === 1 ? colors.upper : colors.lower;
         const isWarmSkinPixel = red > green + 16 && green > blue + 8 && red > 82;
-        if (isWarmSkinPixel) continue;
-        // Replace all classified garment UV pixels, including their antialiased edges,
-        // so the source texture's white crack-like marks cannot show through.
+        if (isWarmSkinPixel || chroma > 88) continue;
+        const neutralFabric = 1 - THREE.MathUtils.smoothstep(chroma, 22, 52);
+        const smoothableFabric = 1 - THREE.MathUtils.smoothstep(chroma, 22, 88);
+        const smoothing = maskInterior ? smoothableFabric * 0.9 : 0;
         for (let channel = 0; channel < 3; channel += 1) {
-          pixels.data[pixelOffset + channel] = garmentColor[channel];
+          const original = pixels.data[pixelOffset + channel];
+          const smoothed = THREE.MathUtils.lerp(original, smoothedPixels.data[pixelOffset + channel], smoothing);
+          const tinted = smoothed * garmentColor[channel] / 255;
+          pixels.data[pixelOffset + channel] = Math.round(THREE.MathUtils.lerp(smoothed, tinted, neutralFabric));
         }
       }
     }
