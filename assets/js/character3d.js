@@ -716,8 +716,10 @@ if (canvasHost && characterButton) {
   const positionHintBubble = () => {
     if (!hint || active) return;
     const stageRect = characterButton.getBoundingClientRect();
+    const cardRect = characterButton.closest('.sidebar')?.getBoundingClientRect();
     hint.style.left = `${window.scrollX + stageRect.left + stageRect.width / 2}px`;
-    hint.style.top = `${Math.max(14, window.scrollY + stageRect.top - hint.offsetHeight - 8)}px`;
+    const anchorTop = cardRect?.top ?? stageRect.top;
+    hint.style.top = `${Math.max(14, window.scrollY + anchorTop - hint.offsetHeight - 8)}px`;
   };
   resizeObserver = new ResizeObserver(() => {
     resize();
