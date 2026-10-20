@@ -286,24 +286,130 @@ if (canvasHost && characterButton) {
     const clip = sourceClip.clone();
     clip.resetDuration();
     const duration = clip.duration;
-    if (!(duration > 0)) return clip;
+    if (!(duration > 0) || !clip.tracks.length) return clip;
 
-    // Loop the active middle of the waving clip so its arm does not lower
-    // between repetitions. Smooth the short loop seam at a steady rate.
-    const loopStart = duration * 0.2;
-    const loopEnd = duration * 0.8;
+    // Pick matching points from the active middle of the wave. Fixed crop
+    // percentages can join opposite hand positions and make each repeat pop.
+    const sampleCount = 96;
+    const sampleTimes = Array.from({ length: sampleCount + 1 }, (_, index) => duration * index / sampleCount);
+    const sampledTracks = clip.tracks.filter((track) => track.times.length).map((track) => {
+      const interpolant = track.createInterpolant();
+      return {
+        track,
+        valueSize: track.getValueSize(),
+        isQuaternion: track.name.endsWith('.quaternion') && track.getValueSize() === 4,
+        values: sampleTimes.map((time) => Array.from(interpolant.evaluate(time))),
+      };
+    });
+    if (!sampledTracks.length) return clip;
+    const matchTracks = sampledTracks;
+    const poseError = (sampledTrack, firstIndex, secondIndex) => {
+      const first = sampledTrack.values[firstIndex];
+      const second = sampledTrack.values[secondIndex];
+      if (sampledTrack.isQuaternion) {
+        const firstLength = Math.hypot(...first) || 1;
+        const secondLength = Math.hypot(...second) || 1;
+        const dot = Math.abs(first.reduce((sum, value, index) => sum + value * second[index], 0) / (firstLength * secondLength));
+        return 1 - Math.min(1, dot);
+      }
+      const difference = Math.hypot(...first.map((value, index) => value - second[index]));
+      return Math.min(1, difference / Math.max(0.05, Math.hypot(...first), Math.hypot(...second)));
+    };
+    const velocityError = (sampledTrack, firstIndex, secondIndex) => {
+      const beforeOffset = Math.max(0, firstIndex - 1);
+      const afterOffset = Math.min(sampleCount, firstIndex + 1);
+      const firstBefore = sampledTrack.values[beforeOffset];
+      const firstAfter = sampledTrack.values[afterOffset];
+      const secondBefore = sampledTrack.values[Math.max(0, secondIndex - 1)];
+      const secondAfter = sampledTrack.values[Math.min(sampleCount, secondIndex + 1)];
+      const firstBeforeAligned = sampledTrack.isQuaternion
+        && firstBefore.reduce((sum, value, index) => sum + value * firstAfter[index], 0) < 0
+        ? firstBefore.map((value) => -value)
+        : firstBefore;
+      const firstVelocity = firstAfter.map((value, index) => (value - firstBeforeAligned[index]) / (sampleTimes[afterOffset] - sampleTimes[beforeOffset]));
+      const secondBeforeAligned = sampledTrack.isQuaternion
+        && secondBefore.reduce((sum, value, index) => sum + value * secondAfter[index], 0) < 0
+        ? secondBefore.map((value) => -value)
+        : secondBefore;
+      const secondVelocity = secondAfter.map((value, index) => (value - secondBeforeAligned[index]) / (sampleTimes[Math.min(sampleCount, secondIndex + 1)] - sampleTimes[Math.max(0, secondIndex - 1)]));
+      const difference = Math.hypot(...firstVelocity.map((value, index) => value - secondVelocity[index]));
+      return Math.min(1, difference / Math.max(0.05, Math.hypot(...firstVelocity), Math.hypot(...secondVelocity)));
+    };
+
+    const firstCandidate = Math.ceil(sampleCount * 0.18);
+    const lastCandidate = Math.floor(sampleCount * 0.82);
+    const minimumCycle = duration * 0.12;
+    const maximumCycle = duration * 0.5;
+    const preferredCycle = duration * 0.3;
+    let loopStartIndex = firstCandidate;
+    let loopEndIndex = lastCandidate;
+    let bestScore = Infinity;
+    for (let startIndex = firstCandidate; startIndex < lastCandidate; startIndex += 1) {
+      for (let endIndex = startIndex + 1; endIndex <= lastCandidate; endIndex += 1) {
+        const cycleDuration = sampleTimes[endIndex] - sampleTimes[startIndex];
+        if (cycleDuration < minimumCycle || cycleDuration > maximumCycle) continue;
+        let totalWeight = 0;
+        let poseScore = 0;
+        let motionScore = 0;
+        matchTracks.forEach((sampledTrack) => {
+          const weight = /shoulder|arm|forearm|wrist|hand|finger|thumb/i.test(sampledTrack.track.name) ? 1 : 0.1;
+          poseScore += poseError(sampledTrack, startIndex, endIndex) * weight;
+          motionScore += velocityError(sampledTrack, startIndex, endIndex) * weight;
+          totalWeight += weight;
+        });
+        const periodPenalty = Math.abs(cycleDuration - preferredCycle) / duration;
+        const score = poseScore / totalWeight + (motionScore / totalWeight) * 0.3 + periodPenalty * 0.015;
+        if (score < bestScore) {
+          bestScore = score;
+          loopStartIndex = startIndex;
+          loopEndIndex = endIndex;
+        }
+      }
+    }
+
+    const loopStart = sampleTimes[loopStartIndex];
+    const loopEnd = sampleTimes[loopEndIndex];
     const loopDuration = loopEnd - loopStart;
-    const seamDuration = Math.min(0.25, loopDuration * 0.18);
+    const seamDuration = Math.min(0.08, loopDuration * 0.06);
     const seamStart = loopEnd - seamDuration;
     const seamStartInLoop = seamStart - loopStart;
     const segments = 6;
-    const tracks = clip.tracks.map((track) => {
+    const tracks = sampledTracks.map(({ track }) => {
       if (!track.times.length) return track;
 
       const valueSize = track.getValueSize();
       const interpolant = track.createInterpolant();
-      const startPose = Array.from(interpolant.evaluate(loopStart));
-      const seamPose = Array.from(interpolant.evaluate(seamStart));
+      const isQuaternion = track.name.endsWith('.quaternion') && valueSize === 4;
+      const sample = (time) => Array.from(interpolant.evaluate(time));
+      const startPose = sample(loopStart);
+      let seamPose = sample(seamStart);
+      const estimateVelocity = (time) => {
+        const epsilon = Math.min(0.01, seamDuration * 0.08);
+        const beforeTime = Math.max(0, time - epsilon);
+        const afterTime = Math.min(duration, time + epsilon);
+        const reference = sample(time);
+        const before = sample(beforeTime);
+        const after = sample(afterTime);
+        if (isQuaternion) {
+          const alignHemisphere = (pose) => {
+            const dot = pose.reduce((sum, value, index) => sum + value * reference[index], 0);
+            return dot < 0 ? pose.map((value) => -value) : pose;
+          };
+          const alignedBefore = alignHemisphere(before);
+          const alignedAfter = alignHemisphere(after);
+          return alignedAfter.map((value, index) => (value - alignedBefore[index]) / (afterTime - beforeTime));
+        }
+        return after.map((value, index) => (value - before[index]) / (afterTime - beforeTime));
+      };
+      const startVelocity = estimateVelocity(loopStart);
+      let seamVelocity = estimateVelocity(seamStart);
+      if (isQuaternion) {
+        const hemisphereDot = seamPose.reduce((sum, value, index) => sum + value * startPose[index], 0);
+        if (hemisphereDot < 0) {
+          seamPose = seamPose.map((value) => -value);
+          seamVelocity = seamVelocity.map((value) => -value);
+        }
+      }
       const times = [];
       const values = [];
 
@@ -324,15 +430,24 @@ if (canvasHost && characterButton) {
       for (let segment = 1; segment <= segments; segment += 1) {
         const progress = segment / segments;
         times.push(seamStartInLoop + seamDuration * progress);
-
-        if (track.name.endsWith('.quaternion') && valueSize === 4) {
-          const pose = new THREE.Quaternion().fromArray(seamPose)
-            .slerp(new THREE.Quaternion().fromArray(startPose), progress);
-          values.push(pose.x, pose.y, pose.z, pose.w);
+        const progress2 = progress * progress;
+        const progress3 = progress2 * progress;
+        const h00 = 2 * progress3 - 3 * progress2 + 1;
+        const h10 = progress3 - 2 * progress2 + progress;
+        const h01 = -2 * progress3 + 3 * progress2;
+        const h11 = progress3 - progress2;
+        const pose = Array.from({ length: valueSize }, (_, valueIndex) => (
+          h00 * seamPose[valueIndex]
+          + h10 * seamDuration * seamVelocity[valueIndex]
+          + h01 * startPose[valueIndex]
+          + h11 * seamDuration * startVelocity[valueIndex]
+        ));
+        if (isQuaternion) {
+          const quaternion = new THREE.Quaternion().fromArray(pose).normalize();
+          if (segment === segments) quaternion.fromArray(startPose);
+          values.push(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
         } else {
-          for (let valueIndex = 0; valueIndex < valueSize; valueIndex += 1) {
-            values.push(THREE.MathUtils.lerp(seamPose[valueIndex], startPose[valueIndex], progress));
-          }
+          values.push(...(segment === segments ? startPose : pose));
         }
       }
 
