@@ -234,9 +234,18 @@ if (canvasHost && characterButton) {
         if (Math.max(red, green, blue) < 72 || chroma > 52) continue;
 
         const neutralFabric = 1 - THREE.MathUtils.smoothstep(chroma, 22, 52);
+        const sourceLuminance = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+        const originalShade = sourceLuminance / 230;
+        // Compress baked fabric highlights and creases so they read as softer
+        // shading after recoloring instead of bright, crack-like lines.
+        const garmentShade = THREE.MathUtils.clamp(
+          0.9 + (originalShade - 0.9) * 0.35,
+          0.82,
+          1.04,
+        );
         for (let channel = 0; channel < 3; channel += 1) {
           const original = pixels.data[pixelOffset + channel];
-          const tinted = original * garmentColor[channel] / 255;
+          const tinted = garmentColor[channel] * garmentShade;
           pixels.data[pixelOffset + channel] = Math.round(THREE.MathUtils.lerp(original, tinted, neutralFabric));
         }
       }
@@ -924,9 +933,13 @@ if (canvasHost && characterButton) {
         const clothingTexture = createClothingTexture(texture, skinnedMeshes) || texture;
         model.traverse((object) => {
           if (!object.isMesh) return;
+          if (!object.geometry.getAttribute('normal')) object.geometry.computeVertexNormals();
           const applyTexture = (sourceMaterial) => {
             const material = sourceMaterial.clone();
             material.map = clothingTexture;
+            // Ignore imported normal maps to prevent triangulated highlights on fabric.
+            material.normalMap = null;
+            material.flatShading = false;
             material.color.set(0xffffff);
             material.needsUpdate = true;
             return material;
