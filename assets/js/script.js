@@ -188,6 +188,10 @@ const animateAlongTrack = (targetSide, duration) => new Promise((resolve) => {
   startTrackAnimation(move, currentLeft, getTrackPosition(targetSide), duration);
 });
 
+const startTrackAfterTurn = (start) => {
+  characterButton?.addEventListener('character-turn-finished', start, { once: true });
+};
+
 characterButton?.addEventListener('character-track-pause', () => {
   if (!activeTrackMove?.animation || activeTrackMove.paused) return;
   activeTrackMove.paused = true;
@@ -256,7 +260,7 @@ const resizeCharacterTrack = () => {
     startTrackAnimation(move, currentLeft, targetLeft, remaining);
   } else if (characterSequence === 'dancing') {
     characterButton.style.left = `${getTrackPosition('end')}px`;
-  } else if (characterSequence === 'jumping-out' || characterSequence === 'walking-out') {
+  } else if (characterSequence === 'jumping-out' || characterSequence === 'walking-out' || characterSequence === 'walking-home') {
     characterButton.style.left = `${clampLeft(visualLeft)}px`;
   }
 };
@@ -370,7 +374,10 @@ characterButton?.addEventListener('click', () => {
           document.body.classList.remove('character-dancing');
           document.body.classList.add('character-walking');
           setCharacterWalkFacing(endLeft, startLeft);
-          animateAlongTrack('start', walkDuration).then(finishSequence);
+          startTrackAfterTurn(() => {
+            if (characterSequence !== 'walking-home') return;
+            animateAlongTrack('start', walkDuration).then(finishSequence);
+          });
         };
 
         let walkingStarted = false;
@@ -384,11 +391,14 @@ characterButton?.addEventListener('click', () => {
           document.body.classList.add('character-walking');
           setCharacterWalkFacing(startLeft, endLeft);
           characterButton.style.left = `${startLeft}px`;
-          animateAlongTrack('end', walkDuration).then(() => {
-            characterButton.addEventListener('character-dance-finished', returnToPortrait, { once: true });
-            characterSequence = 'dancing';
-            document.body.classList.remove('character-walking', 'character-returning');
-            document.body.classList.add('character-dancing');
+          startTrackAfterTurn(() => {
+            if (characterSequence !== 'walking-out') return;
+            animateAlongTrack('end', walkDuration).then(() => {
+              characterButton.addEventListener('character-dance-finished', returnToPortrait, { once: true });
+              characterSequence = 'dancing';
+              document.body.classList.remove('character-walking', 'character-returning');
+              document.body.classList.add('character-dancing');
+            });
           });
         };
 

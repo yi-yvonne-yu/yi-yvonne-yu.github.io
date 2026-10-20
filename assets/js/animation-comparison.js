@@ -1,52 +1,71 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { animationLibrary } from './animation-library.js?v=20261020-boxing-kicking-1';
 
-const currentClipFiles = [
-  ['Listening To Music (idle)', './assets/models/yvonne-rigged-listening-to-music.fbx'],
-  ['Walking', './assets/models/yvonne-rigged-walking.fbx'],
-  ['Waving', './assets/models/yvonne-rigged-waving.fbx'],
-  ['Jazz Dancing 1', './assets/models/yvonne-rigged-jazz-dancing-1.fbx'],
-  ['Jazz Dancing 2', './assets/models/yvonne-rigged-jazz-dancing-2.fbx'],
-  ['Northern Soul Floor Combo', './assets/models/yvonne-rigged-northern-soul-floor-combo.fbx'],
-  ['Swing Dancing', './assets/models/yvonne-rigged-swing-dancing.fbx'],
-  ['House Dancing', './assets/models/yvonne-rigged-house-dancing.fbx'],
-  ['YMCA Dance', './assets/models/yvonne-rigged-ymca-dance.fbx'],
-  ['Standing Idle To Fight Idle', './assets/models/yvonne-rigged-standing-idle-to-fight-idle.fbx'],
-  ['Fist Fight A', './assets/models/yvonne-rigged-fist-fight-a.fbx'],
-  ['Fist Fight B', './assets/models/yvonne-rigged-fist-fight-b.fbx'],
-];
+const clips = animationLibrary;
 
-const newModelPath = './assets/models/animation-comparison/meshy-biped/Meshy_AI_chibi_palms_down_mixa_biped_Meshy_Merged_Animations.fbx';
-const currentModelPath = './assets/models/yvonne-rigged-waving.fbx';
-const loader = new FBXLoader();
-const currentSelect = document.querySelector('#current-clip');
-const newSelect = document.querySelector('#new-clip');
-const currentStatus = document.querySelector('#current-status');
-const newStatus = document.querySelector('#new-status');
+const clipLoader = new FBXLoader();
+const clipCache = new Map();
 const players = [];
+const clipSelects = [
+  document.querySelector('#current-clip'),
+  document.querySelector('#sage-blue-clip'),
+];
+let selectedClipIndex = 0;
 
-const normalizeBoneName = (name) => name.replace(/^.*:/, '').replace(/^mixamorig/i, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+function loadClip(path) {
+  if (!clipCache.has(path)) {
+    clipCache.set(path, clipLoader.loadAsync(path).then((fbx) => {
+      const clip = fbx.animations?.[0];
+      if (!clip) throw new Error('No animation clip found in this FBX.');
+      return clip;
+    }));
+  }
+  return clipCache.get(path);
+}
 
-function makePlayer(viewport) {
+function normalizeBoneName(name) {
+  return name.replace(/^.*:/, '').replace(/^mixamorig/i, '').replace(/[^a-z0-9]/gi, '').toLowerCase();
+}
+
+function retargetClip(clip, bones) {
+  const retargeted = clip.clone();
+  retargeted.tracks = retargeted.tracks.filter((track) => {
+    const dot = track.name.indexOf('.');
+    if (dot < 0) return true;
+    const property = track.name.slice(dot + 1);
+    const parts = track.name.slice(0, dot).split(/[|/]/).reverse();
+    if (parts.some((part) => normalizeBoneName(part) === 'hips') && property.startsWith('position')) return false;
+    const target = parts.map((part) => bones.get(normalizeBoneName(part))).find(Boolean);
+    if (!target) return false;
+    track.name = `${target.name}${track.name.slice(dot)}`;
+    return true;
+  });
+  return retargeted;
+}
+
+function createPlayer({ viewport, status, modelPath, texturePath, initialMessage }) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(36, 1, 0.01, 100);
   camera.position.set(0, 1.05, 4.5);
-  camera.lookAt(0, 0.9, 0);
+  camera.lookAt(0, 0.88, 0);
+
   const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15;
   viewport.appendChild(renderer.domElement);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x988897, 2.1));
-  const key = new THREE.DirectionalLight(0xffead8, 3.1);
-  key.position.set(-2, 4, 4);
-  scene.add(key);
-  const fill = new THREE.DirectionalLight(0xc5dcff, 1.3);
-  fill.position.set(3, 2, -3);
-  scene.add(fill);
 
-  const player = { scene, camera, renderer, mixer: null, model: null, bones: new Map(), activeAction: null };
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x988897, 2.1));
+  const keyLight = new THREE.DirectionalLight(0xffead8, 3.1);
+  keyLight.position.set(-2, 4, 4);
+  scene.add(keyLight);
+  const fillLight = new THREE.DirectionalLight(0xc5dcff, 1.3);
+  fillLight.position.set(3, 2, -3);
+  scene.add(fillLight);
+
+  const player = { scene, camera, renderer, status, modelPath, texturePath, bones: new Map(), mixer: null, activeAction: null, requestId: 0, ready: false };
   const resize = () => {
     const width = Math.max(1, viewport.clientWidth);
     const height = Math.max(1, viewport.clientHeight);
@@ -56,146 +75,116 @@ function makePlayer(viewport) {
   };
   new ResizeObserver(resize).observe(viewport);
   resize();
+  status.textContent = initialMessage;
   players.push(player);
   return player;
 }
 
 function fitModel(player, model) {
+  model.updateMatrixWorld(true);
   const bounds = new THREE.Box3().setFromObject(model);
   const size = bounds.getSize(new THREE.Vector3());
   model.scale.setScalar(1.72 / Math.max(size.y, 0.001));
   const scaledBounds = new THREE.Box3().setFromObject(model);
   model.position.x -= (scaledBounds.min.x + scaledBounds.max.x) / 2;
   model.position.y -= scaledBounds.min.y;
-  player.camera.lookAt(0, 0.88, 0);
 }
 
-function retargetClip(clip, player) {
-  const retargeted = clip.clone();
-  retargeted.tracks = retargeted.tracks.filter((track) => {
-    const dot = track.name.indexOf('.');
-    if (dot < 0) return true;
-    const pathParts = track.name.slice(0, dot).split(/[|/]/).reverse();
-    if (pathParts.some((part) => normalizeBoneName(part) === 'hips') && track.name.slice(dot + 1).startsWith('position')) return false;
-    const target = pathParts.map((part) => player.bones.get(normalizeBoneName(part))).find(Boolean);
-    if (!target) return false;
-    track.name = `${target.name}${track.name.slice(dot)}`;
-    return true;
-  });
-  return retargeted;
-}
-
-function playClip(player, clip, repeat = true) {
-  if (!player.mixer || !clip) return;
-  if (player.activeAction) player.activeAction.stop();
-  const action = player.mixer.clipAction(clip);
-  action.reset();
-  action.setLoop(repeat ? THREE.LoopRepeat : THREE.LoopOnce, repeat ? Infinity : 1);
-  action.clampWhenFinished = !repeat;
-  action.play();
-  player.activeAction = action;
-}
-
-function addOption(select, label, value) {
-  const option = document.createElement('option');
-  option.value = value;
-  option.textContent = label;
-  select.append(option);
-}
-
-async function loadCurrentPlayer(player) {
-  const model = await loader.loadAsync(currentModelPath);
-  player.model = model;
-  model.traverse((object) => {
-    if (object.isSkinnedMesh) object.frustumCulled = false;
-    if (object.isBone) player.bones.set(normalizeBoneName(object.name), object);
-  });
-  fitModel(player, model);
-  player.scene.add(model);
-
-  const texture = await new THREE.TextureLoader().loadAsync('./assets/models/yvonne-character-texture.webp');
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.flipY = true;
-  texture.anisotropy = player.renderer.capabilities.getMaxAnisotropy();
-  model.traverse((object) => {
-    if (!object.isMesh || !object.material) return;
-    const apply = (source) => {
-      const material = source.clone();
-      material.map = texture;
-      material.normalMap = null;
-      material.color.set(0xffffff);
-      material.needsUpdate = true;
-      return material;
-    };
-    object.material = Array.isArray(object.material) ? object.material.map(apply) : apply(object.material);
-  });
-  player.mixer = new THREE.AnimationMixer(model);
-
-  currentClipFiles.forEach(([label], index) => addOption(currentSelect, label, String(index)));
-  currentSelect.value = '0';
-  currentSelect.addEventListener('change', () => loadCurrentAnimation(player, Number(currentSelect.value)));
-  document.querySelector('#current-replay').addEventListener('click', () => loadCurrentAnimation(player, Number(currentSelect.value)));
-  await loadCurrentAnimation(player, 0);
-}
-
-async function loadCurrentAnimation(player, index) {
-  const [label, path] = currentClipFiles[index];
-  currentStatus.textContent = `Loading ${label}…`;
+async function initializePlayer(player) {
   try {
-    const source = await loader.loadAsync(path);
-    const clip = source.animations?.[0];
-    if (!clip) throw new Error('No animation clip found in this FBX.');
-    const mapped = retargetClip(clip, player);
-    if (!mapped.tracks.length) throw new Error('No tracks matched the current character skeleton.');
-    playClip(player, mapped, !['Standing Idle To Fight Idle', 'Fist Fight A', 'Fist Fight B'].includes(label));
-    currentStatus.textContent = `${label} · ${clip.duration.toFixed(2)} seconds · ${mapped.tracks.length} matched tracks`;
-  } catch (error) {
-    currentStatus.textContent = `Could not load ${label}: ${error.message}`;
-  }
-}
+    const modelLabel = player.modelPath.includes('sage-blue') ? 'sage-blue' : 'current';
+    player.status.textContent = `Loading ${modelLabel} FBX…`;
+    const model = await clipLoader.loadAsync(player.modelPath);
+    player.status.textContent = `Loading ${modelLabel} color texture…`;
+    const texture = await new THREE.TextureLoader().loadAsync(player.texturePath);
+    player.status.textContent = `Preparing ${modelLabel} character…`;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.flipY = true;
+    texture.anisotropy = player.renderer.capabilities.getMaxAnisotropy();
 
-async function loadNewPlayer(player) {
-  try {
-    const model = await loader.loadAsync(newModelPath);
-    player.model = model;
     model.traverse((object) => {
       if (object.isSkinnedMesh) object.frustumCulled = false;
       if (object.isBone) player.bones.set(normalizeBoneName(object.name), object);
+      if (!object.isMesh || !object.material) return;
+      const applyTexture = (source) => {
+        const material = source.clone();
+        material.map = texture;
+        material.normalMap = null;
+        material.color.set(0xffffff);
+        material.needsUpdate = true;
+        return material;
+      };
+      object.material = Array.isArray(object.material) ? object.material.map(applyTexture) : applyTexture(object.material);
     });
+
     fitModel(player, model);
     player.scene.add(model);
     player.mixer = new THREE.AnimationMixer(model);
-
-    const clips = model.animations || [];
-    if (!clips.length) {
-      newStatus.textContent = 'The FBX loaded, but Three.js did not find animation clips in it.';
-      return;
-    }
-    clips.forEach((clip, index) => addOption(newSelect, `${clip.name || `Take ${index + 1}`} · ${clip.duration.toFixed(2)}s`, String(index)));
-    newSelect.disabled = false;
-    document.querySelector('#new-replay').disabled = false;
-    const playSelected = () => {
-      const index = Number(newSelect.value);
-      const clip = clips[index];
-      playClip(player, clip, true);
-      newStatus.textContent = `${clip.name || `Take ${index + 1}`} · ${clip.duration.toFixed(2)} seconds · ${clip.tracks.length} tracks`;
-    };
-    newSelect.addEventListener('change', playSelected);
-    document.querySelector('#new-replay').addEventListener('click', playSelected);
-    newSelect.value = String(Math.max(0, clips.findIndex((clip) => /walking|walk|running|run/i.test(clip.name))));
-    playSelected();
+    player.ready = true;
+    await playSelectedClip(player, selectedClipIndex);
   } catch (error) {
-    newStatus.textContent = `Could not load the separate test FBX: ${error.message}`;
+    player.status.textContent = `Could not load this character: ${error.message}`;
   }
 }
 
-const currentPlayer = makePlayer(document.querySelector('#current-viewport'));
-const newPlayer = makePlayer(document.querySelector('#new-viewport'));
+async function playSelectedClip(player, index) {
+  if (!player.ready) return;
+  const requestId = ++player.requestId;
+  const { label, path } = clips[index];
+  player.status.textContent = `Loading ${label}…`;
+  try {
+    const sourceClip = await loadClip(path);
+    if (requestId !== player.requestId) return;
+    const clip = retargetClip(sourceClip, player.bones);
+    if (!clip.tracks.length) throw new Error('No animation tracks matched this character skeleton.');
 
-loadCurrentPlayer(currentPlayer).catch((error) => {
-  currentStatus.textContent = `Could not load current character: ${error.message}`;
+    player.activeAction?.stop();
+    player.activeAction = player.mixer.clipAction(clip);
+    player.activeAction.reset();
+    const repeat = clips[index].loop !== false;
+    player.activeAction.setLoop(repeat ? THREE.LoopRepeat : THREE.LoopOnce, repeat ? Infinity : 1);
+    player.activeAction.clampWhenFinished = !repeat;
+    player.activeAction.play();
+    player.status.textContent = `${label} · ${sourceClip.duration.toFixed(2)} seconds · ${clip.tracks.length} matched tracks`;
+  } catch (error) {
+    if (requestId === player.requestId) player.status.textContent = `Could not load ${label}: ${error.message}`;
+  }
+}
+
+function selectClip(index) {
+  selectedClipIndex = index;
+  clipSelects.forEach((select) => { select.value = String(index); });
+  players.forEach((player) => playSelectedClip(player, index));
+}
+
+clips.forEach(({ label }, index) => {
+  clipSelects.forEach((select) => {
+    const option = document.createElement('option');
+    option.value = String(index);
+    option.textContent = label;
+    select.append(option);
+  });
 });
-loadNewPlayer(newPlayer);
+
+clipSelects.forEach((select) => select.addEventListener('change', () => selectClip(Number(select.value))));
+document.querySelector('#current-replay').addEventListener('click', () => selectClip(selectedClipIndex));
+document.querySelector('#sage-blue-replay').addEventListener('click', () => selectClip(selectedClipIndex));
+
+createPlayer({
+  viewport: document.querySelector('#current-viewport'),
+  status: document.querySelector('#current-status'),
+  modelPath: './assets/models/yvonne-rigged-waving.fbx',
+  texturePath: './assets/models/yvonne-character-texture.webp',
+  initialMessage: 'Loading current character…',
+});
+createPlayer({
+  viewport: document.querySelector('#sage-blue-viewport'),
+  status: document.querySelector('#sage-blue-status'),
+  modelPath: './assets/models/yvonne-sage-blue.fbx',
+  texturePath: './assets/models/yvonne-sage-blue-texture.jpg',
+  initialMessage: 'Loading sage-blue model and texture…',
+});
+players.forEach(initializePlayer);
 
 const clock = new THREE.Clock();
 function animate() {

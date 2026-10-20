@@ -1,0 +1,37 @@
+// One shared, skin-independent catalog for all animation clips.
+export const animationLibrary = [
+  { id: 'listening-to-music', label: 'Listening To Music', path: './assets/models/yvonne-rigged-listening-to-music.fbx' },
+  { id: 'walking', label: 'Walking', path: './assets/models/yvonne-rigged-walking.fbx' },
+  { id: 'waving', label: 'Waving', path: './assets/models/yvonne-rigged-waving.fbx' },
+  { id: 'jazz-dancing-1', label: 'Jazz Dancing 1', path: './assets/models/yvonne-rigged-jazz-dancing-1.fbx' },
+  { id: 'jazz-dancing-2', label: 'Jazz Dancing 2', path: './assets/models/yvonne-rigged-jazz-dancing-2.fbx' },
+  { id: 'northern-soul-floor-combo', label: 'Northern Soul Floor Combo', path: './assets/models/yvonne-rigged-northern-soul-floor-combo.fbx' },
+  { id: 'swing-dancing', label: 'Swing Dancing', path: './assets/models/yvonne-rigged-swing-dancing.fbx' },
+  { id: 'house-dancing', label: 'House Dancing', path: './assets/models/yvonne-rigged-house-dancing.fbx' },
+  { id: 'ymca-dance', label: 'YMCA Dance', path: './assets/models/yvonne-rigged-ymca-dance.fbx' },
+  { id: 'standing-idle-to-fight-idle', label: 'Standing Idle To Fight Idle', path: './assets/models/yvonne-rigged-standing-idle-to-fight-idle.fbx', loop: false },
+  { id: 'fist-fight-a', label: 'Fist Fight A', path: './assets/models/yvonne-rigged-fist-fight-a.fbx', loop: false },
+  { id: 'fist-fight-b', label: 'Fist Fight B', path: './assets/models/yvonne-rigged-fist-fight-b.fbx', loop: false },
+  { id: 'boxing', label: 'Boxing', path: './assets/models/actions/boxing.fbx', loop: false },
+  { id: 'kicking', label: 'Kicking', path: './assets/models/actions/kicking.fbx', loop: false },
+
+  { id: 'arms-hip-hop-dance', label: 'Arms Hip Hop Dance', path: './assets/models/sage-blue-actions/adobe/arms-hip-hop-dance.fbx' },
+  { id: 'fight-idle-to-standing-idle', label: 'Fight Idle To Standing Idle', path: './assets/models/sage-blue-actions/adobe/fight-idle-to-standing-idle.fbx', loop: false },
+  { id: 'macarena-dance', label: 'Macarena Dance', path: './assets/models/sage-blue-actions/adobe/macarena-dance.fbx' },
+  { id: 'robot-hip-hop-dance', label: 'Robot Hip Hop Dance', path: './assets/models/sage-blue-actions/adobe/robot-hip-hop-dance.fbx' },
+  { id: 'twist-dance', label: 'Twist Dance', path: './assets/models/sage-blue-actions/adobe/twist-dance.fbx' },
+  { id: 'wave-hip-hop-dance', label: 'Wave Hip Hop Dance', path: './assets/models/sage-blue-actions/adobe/wave-hip-hop-dance.fbx' },
+
+  { id: 'samba-dancing', label: 'Samba Dancing', path: './assets/models/sage-blue-actions/free-test-pack/samba-dancing.fbx' },
+  { id: 'back-flip-to-uppercut', label: 'Back Flip To Uppercut', path: './assets/models/sage-blue-actions/free-test-pack/back-flip-to-uppercut.fbx', loop: false },
+  { id: 'skinning-test', label: 'Skinning Test', path: './assets/models/sage-blue-actions/free-test-pack/skinning-test.fbx' },
+  { id: 'left-strafe-walking', label: 'Left Strafe Walking', path: './assets/models/sage-blue-actions/free-test-pack/left-strafe-walking.fbx' },
+  { id: 'right-strafe-walking', label: 'Right Strafe Walking', path: './assets/models/sage-blue-actions/free-test-pack/right-strafe-walking.fbx' },
+  { id: 'idle', label: 'Idle', path: './assets/models/sage-blue-actions/free-test-pack/idle.fbx' },
+  { id: 'jump', label: 'Jump', path: './assets/models/sage-blue-actions/free-test-pack/jump.fbx', loop: false },
+  { id: 'right-turn-90', label: 'Right Turn 90', path: './assets/models/sage-blue-actions/free-test-pack/right-turn-90.fbx', loop: false },
+  { id: 'left-turn-90', label: 'Left Turn 90', path: './assets/models/sage-blue-actions/free-test-pack/left-turn-90.fbx', loop: false },
+  { id: 'gangnam-style', label: 'Gangnam Style', path: './assets/models/sage-blue-actions/free-test-pack/gangnam-style.fbx' },
+
+  { id: 'northern-soul-spin-combo', label: 'Northern Soul Spin Combo', path: './assets/models/sage-blue-actions/northern-soul-spin-combo.fbx' },
+];

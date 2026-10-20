@@ -34,8 +34,8 @@
   <main>
     <a class="back-link" href="./">← Back to website</a>
     <h1>Animation Comparison</h1>
-    <p class="intro">Compare the current character and its animation files with the new Meshy biped export. Choose a clip on each side; both previews loop independently.</p>
-    <p class="notice">This is a separate preview page. It does not replace or change the animations on the main website. The two FBX exports may also differ in model or texture.</p>
+    <p class="intro">Compare the current website character with the new sage-blue FBX. Select the same animation on both sides to compare the models.</p>
+    <p class="notice">Both previews share the full animation catalog. Select an action on either side to sync both characters; clips are retargeted to each character’s rig.</p>
     <section class="players" aria-label="Animation previews">
       <article class="player-card">
         <div class="player-head"><h2>Current files</h2><div class="controls"><select id="current-clip" aria-label="Current animation"></select><button id="current-replay" type="button">Replay</button></div></div>
@@ -43,12 +43,12 @@
         <p class="player-status" id="current-status" role="status">Loading current character…</p>
       </article>
       <article class="player-card">
-        <div class="player-head"><h2>New Meshy biped</h2><div class="controls"><select id="new-clip" aria-label="New Meshy animation" disabled></select><button id="new-replay" type="button" disabled>Replay</button></div></div>
-        <div class="viewport" id="new-viewport"></div>
-        <p class="player-status" id="new-status" role="status">Loading the separate test FBX…</p>
+        <div class="player-head"><h2>New sage-blue FBX</h2><div class="controls"><select id="sage-blue-clip" aria-label="Animation"></select><button id="sage-blue-replay" type="button">Replay</button></div></div>
+        <div class="viewport" id="sage-blue-viewport"></div>
+        <p class="player-status" id="sage-blue-status" role="status">Waiting for the preview script…</p>
       </article>
     </section>
   </main>
-  <script type="module" src="./assets/js/animation-comparison.js"></script>
+  <script type="module" src="./assets/js/animation-comparison.js?v=20261020-homepage-motion-set-1"></script>
 </body>
 </html>
