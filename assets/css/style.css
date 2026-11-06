@@ -730,7 +730,7 @@ main {
 
 .avatar-box {
   background-color: #8fc9c8;
-  background-image: url("../images/cozy-studio-sunset.png");
+  background-image: url("../images/golden-hour-sage-home-office.png");
   background-position: center 54%;
   background-size: cover;
   background-repeat: no-repeat;
@@ -738,7 +738,7 @@ main {
 }
 
 body.character-awake .avatar-box {
-  background-image: url("../images/cozy-studio-room.png");
+  background-image: url("../images/pastel-blue-sunlit-home-office.png");
 }
 
 .info-content .name {

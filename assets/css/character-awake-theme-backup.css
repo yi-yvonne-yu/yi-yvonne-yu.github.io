@@ -1,0 +1,93 @@
+/* Backup of the original character-awake theme, saved before the sage palette update.
+   This file is a reference only and is not loaded by the page. */
+
+body::before {
+  background:
+    radial-gradient(ellipse at 18% 16%, #ffc9d8 0, transparent 34%),
+    radial-gradient(ellipse at 84% 25%, #b9e9ff 0, transparent 34%),
+    radial-gradient(ellipse at 68% 90%, #e9dcff 0, transparent 38%),
+    #fff6dc;
+}
+
+body.character-awake {
+  --bg-gradient-onyx: linear-gradient(to bottom right, #fff 3%, #f8eef4 97%);
+  --bg-gradient-jet: linear-gradient(to bottom right, rgba(255, 255, 255, 0.98), rgba(250, 246, 250, 0.98));
+  --bg-gradient-yellow-1: linear-gradient(to bottom right, #ffe5a7 0%, #ffd1bb 100%);
+  --bg-gradient-yellow-2: linear-gradient(135deg, rgba(255, 229, 167, 0.25), rgba(255, 209, 187, 0.2)), #fffaf3;
+  --border-gradient-onyx: linear-gradient(to bottom right, #e9dfe7 0%, rgba(233, 223, 231, 0.45) 50%, #f2eaf1 100%);
+  --text-gradient-yellow: linear-gradient(to right, #e97f83, #cf7837);
+  --jet: #e5dce6;
+  --onyx: #f1eaf1;
+  --eerie-black-1: #fff;
+  --eerie-black-2: rgba(255, 255, 255, 0.86);
+  --smoky-black: #fff7ec;
+  --white-1: #342b3a;
+  --white-2: #342b3a;
+  --orange-yellow-crayola: #ad6414;
+  --vegas-gold: #98702f;
+  --light-gray: #5b5261;
+  --light-gray-70: rgba(91, 82, 97, 0.72);
+  --shadow-1: 0 4px 18px rgba(70, 49, 72, 0.08);
+  --shadow-2: 0 12px 26px rgba(70, 49, 72, 0.12);
+  --shadow-3: 0 14px 32px rgba(70, 49, 72, 0.14);
+  --shadow-4: 0 20px 38px rgba(70, 49, 72, 0.12);
+  --shadow-5: 0 22px 56px rgba(70, 49, 72, 0.18);
+  color: #342b3a;
+}
+
+body.character-awake .sidebar,
+body.character-awake article {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(93, 73, 106, 0.2);
+  color: #342b3a;
+}
+
+body.character-awake .h2,
+body.character-awake .h3,
+body.character-awake .h4,
+body.character-awake .name,
+body.character-awake .timeline-item-title,
+body.character-awake .publication-card,
+body.character-awake .publication-authors strong { color: #342b3a; }
+
+body.character-awake .about-text,
+body.character-awake .timeline-item span,
+body.character-awake .publication-authors { color: #5b5261; }
+
+body.character-awake .navbar {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(93, 73, 106, 0.18);
+  backdrop-filter: blur(14px);
+}
+
+body.character-awake .navbar-link { color: #5b5261; }
+body.character-awake .navbar-link:hover,
+body.character-awake .navbar-link:focus,
+body.character-awake .navbar-link.active { color: #ad6414; }
+
+body.character-awake .separator,
+body.character-awake .timeline-item:not(:last-child)::before { background: #e5dce6; }
+body.character-awake .timeline-item::after { box-shadow: 0 0 0 4px #f1eaf1; }
+body.character-awake .overlay,
+body.character-awake .qr-modal-overlay { background: rgba(52, 43, 58, 0.36); }
+
+body.character-awake .form-input {
+  color: #342b3a;
+  background: rgba(255, 255, 255, 0.78);
+  border-color: #e5dce6;
+}
+
+body.character-awake .form-input::placeholder { color: #8c8190; }
+body.character-awake .qr-modal-content a { background: #fff; }
+body.character-awake .mapbox iframe { filter: grayscale(0.25) contrast(0.96); }
+body.character-awake .select-item button:hover { --eerie-black-2: #f1eaf1; }
+body.character-awake::-webkit-scrollbar-track { background: #f4edf3; }
+body.character-awake::-webkit-scrollbar-thumb { background: #c9b9cd; }
+body.character-awake::-webkit-scrollbar-thumb:hover { background: #b5a1bb; }
+
+.character-stage:focus-visible { outline: 3px solid #ef8ba8; outline-offset: 4px; }
+.character-hint, .character-speech {
+  color: #33263c;
+  background: #fff;
+  border: 1px solid rgba(60, 40, 70, .14);
+}
